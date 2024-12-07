@@ -1,6 +1,6 @@
 ﻿using EasyArguments.Attributes;
 
-namespace EasyArguments.Tests;
+namespace EasyArguments.Tests.DataTest;
 
 [ArgumentsController]
 internal class TestArgumentClass_Numbers

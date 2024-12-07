@@ -1,8 +1,9 @@
 ﻿using EasyArguments.Exceptions;
+using EasyArguments.Tests.DataTest;
 
 namespace EasyArguments.Tests;
 
-public class ArgumentTests
+public class ParsingTests
 {
     [Fact]
     public void Parse_StringsArguments_ShouldParseCorrectly()
