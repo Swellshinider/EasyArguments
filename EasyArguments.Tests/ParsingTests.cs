@@ -9,7 +9,7 @@ public class ParsingTests
     public void Parse_StringsArguments_ShouldParseCorrectly()
     {
         var args = new[] { "-n=John", "-d=Description", "-i=Info" };
-        var parser = new ArgumentParser<TestArgumentClass_Strings>(args);
+        var parser = new ArgumentsController<TestArgumentClass_Strings>(args);
         var result = parser.Parse();
 
         Assert.Equal("John", result.Name);
@@ -21,7 +21,7 @@ public class ParsingTests
     public void Parse_NumbersArguments_ShouldParseCorrectly()
     {
         var args = new[] { "--number1=1.23", "--number2=123", "--number3=123456789", "--number4=12345", "--number5=1.23", "--number6=123.45" };
-        var parser = new ArgumentParser<TestArgumentClass_Numbers>(args);
+        var parser = new ArgumentsController<TestArgumentClass_Numbers>(args);
         var result = parser.Parse();
 
         Assert.Equal(1.23, result.Number1);
@@ -36,7 +36,7 @@ public class ParsingTests
     public void Parse_BooleansArguments_ShouldParseCorrectly()
     {
         var args = new[] { "-f", "-v" };
-        var parser = new ArgumentParser<TestArgumentClass_Booleans>(args);
+        var parser = new ArgumentsController<TestArgumentClass_Booleans>(args);
         var result = parser.Parse();
 
         Assert.True(result.Flag);
@@ -47,7 +47,7 @@ public class ParsingTests
     public void Parse_NoAttribute_ShouldThrowException()
     {
         var args = new[] { "--id=1", "-n=John", "-v=1" };
-        var parser = new ArgumentParser<TestArgumentClass_NoAttribute>(args);
+        var parser = new ArgumentsController<TestArgumentClass_NoAttribute>(args);
 
         Assert.Throws<MissingArgumentsControllerAttributeException>(() => parser.Parse());
     }
@@ -56,7 +56,7 @@ public class ParsingTests
     public void Parse_UnknownArgument_ShouldThrowException()
     {
         var args = new[] { "--unknown=1" };
-        var parser = new ArgumentParser<TestArgumentClass_Strings>(args);
+        var parser = new ArgumentsController<TestArgumentClass_Strings>(args);
 
         Assert.Throws<UnknownArgumentException>(() => parser.Parse());
     }
@@ -65,7 +65,7 @@ public class ParsingTests
     public void Parse_InvalidArgumentType_ShouldThrowException()
     {
         var args = new[] { "--number2=1.23" };
-        var parser = new ArgumentParser<TestArgumentClass_Numbers>(args);
+        var parser = new ArgumentsController<TestArgumentClass_Numbers>(args);
 
         Assert.Throws<InvalidArgumentTypeException>(() => parser.Parse());
     }
