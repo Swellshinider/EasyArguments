@@ -1,7 +1,5 @@
 ﻿namespace EasyArguments.Attributes;
 
-using System;
-
 /// <summary>
 /// Enables the execution of a method, passing the property value as an argument.
 /// </summary>

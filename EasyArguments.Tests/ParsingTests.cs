@@ -3,6 +3,7 @@ using EasyArguments.Tests.DataTest;
 
 namespace EasyArguments.Tests;
 
+
 public class ParsingTests
 {
     [Fact]
@@ -10,6 +11,18 @@ public class ParsingTests
     {
         var args = new[] { "-n=John", "-d=Description", "-i=Info" };
         var parser = new ArgumentsController<TestArgumentClass_Strings>(args);
+        var result = parser.Parse();
+
+        Assert.Equal("John", result.Name);
+        Assert.Equal("Description", result.Description);
+        Assert.Equal("Info", result.Information);
+    }
+
+    [Fact]
+    public void Parse_StringsArguments_RespectOrder_ShouldParseCorrectly()
+    {
+        var args = new[] { "-n=John", "-d=Description", "-i=Info" };
+        var parser = new ArgumentsController<TestArgumentClass_Strings_RespectOrder>(args);
         var result = parser.Parse();
 
         Assert.Equal("John", result.Name);
@@ -68,5 +81,14 @@ public class ParsingTests
         var parser = new ArgumentsController<TestArgumentClass_Numbers>(args);
 
         Assert.Throws<InvalidArgumentTypeException>(() => parser.Parse());
+    }
+    
+    [Fact]
+    public void Parse_MissingRequiredArgument_ShouldThrowException()
+    {
+        var args = new[] { "-n=John" }; // Missing required argument
+        var parser = new ArgumentsController<TestArgumentClass_Strings>(args);
+
+        Assert.Throws<MissingRequiredArgumentException>(() => parser.Parse());
     }
 }
