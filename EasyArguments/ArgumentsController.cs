@@ -90,7 +90,7 @@ public class ArgumentsController<T>(string[] args) where T : new()
 
                     // Check if the key matches one of the allowed argument names
                     if (!foundArgument.Attribute.ArgumentNames.Contains(key))
-                        throw new UnknownArgumentException(key);
+                        throw new IncorrectArgumentOrderException(key, string.Join(", ", foundArgument.Attribute.ArgumentNames));
 
                     SetPropertyValue(result, foundArgument, key, value);
                 }

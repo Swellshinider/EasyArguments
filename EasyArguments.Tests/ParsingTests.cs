@@ -86,9 +86,18 @@ public class ParsingTests
     [Fact]
     public void Parse_MissingRequiredArgument_ShouldThrowException()
     {
-        var args = new[] { "-n=John" }; // Missing required argument
+        var args = new[] { "-n=John" };
         var parser = new ArgumentsController<TestArgumentClass_Strings>(args);
 
         Assert.Throws<MissingRequiredArgumentException>(() => parser.Parse());
+    }
+
+    [Fact]
+    public void Parse_ÌncorrectArgumentOrder_RespectOrder_ShouldThrowException()
+    {
+        var args = new[] { "-n=John", "-i=Info", "-d=Description" };
+        var parser = new ArgumentsController<TestArgumentClass_Strings_RespectOrder>(args);
+
+        Assert.Throws<IncorrectArgumentOrderException>(() => parser.Parse());
     }
 }
