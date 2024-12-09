@@ -1,6 +1,7 @@
 ﻿using EasyArguments.Attributes;
 using EasyArguments.Enums;
 using EasyArguments.Exceptions;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 
@@ -239,33 +240,34 @@ public class ArgumentsController<T>(string[] args) where T : new()
     }
 
     /// <summary>
-    /// Executes the methods annotated with <see cref="ArgumentExecutorAttribute{T2}"/> on the provided object.
+    /// Executes the methods specified by the <see cref="ArgumentExecutorAttribute"/> on the properties of the specified object.
     /// </summary>
-    /// <typeparam name="T2">
-    /// The type of the class containing the methods to execute.
-    /// </typeparam>
     /// <param name="obj">
-    /// Object with properties annotated with <see cref="ArgumentExecutorAttribute{T2}"/>.
+    /// The object whose properties contain the methods to execute.
     /// </param>
     /// <returns>
-    /// Returns the results of the executed methods.
+    /// Returns an <see cref="IEnumerable"/> of the results of the executed methods.
     /// </returns>
     /// <exception cref="MissingMethodException">
-    /// Thrown when a method annotated with <see cref="ArgumentExecutorAttribute{T2}"/> is not found.
+    /// Thrown when the method specified by the <see cref="ArgumentExecutorAttribute"/> is not found.
     /// </exception>
-    public IEnumerable<object?> Execute<T2>(T obj) where T2 : new()
+    public IEnumerable<object?> Execute(T obj)
     {
         var executableArguments = obj!.GetType().GetProperties()
-            .Where(p => p.GetCustomAttribute<ArgumentExecutorAttribute<T2>>() != null)
-            .Select(p => new ExecutableArgument<T2>(p, p.GetValue(obj), p.GetCustomAttribute<ArgumentExecutorAttribute<T2>>()!))
-            .ToList();
+            .Where(p => p.GetCustomAttribute<ArgumentExecutorAttribute>() != null)
+            .Select(p => new
+            {
+                Property = p,
+                Value = p.GetValue(obj),
+                ExecutorAttribute = p.GetCustomAttribute<ArgumentExecutorAttribute>()
+            });
 
         foreach (var execArg in executableArguments)
         {
-            var method = execArg.Attribute.Instance!.GetType().GetMethod(execArg.Attribute.ExecutorName) 
-                ?? throw new MissingMethodException(execArg.Attribute.ExecutorName);
-            
-            yield return method.Invoke(execArg.Attribute.Instance, [execArg.Value]);
+            var method = execArg.ExecutorAttribute!.ExecutorType.GetMethod(execArg.ExecutorAttribute.MethodName, BindingFlags.Static | BindingFlags.Public)
+                ?? throw new MissingMethodException($"Method {execArg.ExecutorAttribute.MethodName} not found in {execArg.ExecutorAttribute.ExecutorType}.");
+
+            yield return method.Invoke(null, [execArg.Value]);
         }
     }
 }

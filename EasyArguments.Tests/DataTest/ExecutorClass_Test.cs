@@ -1,6 +1,6 @@
 ﻿namespace EasyArguments.Tests.DataTest;
 
-public class ExecutorClass_Test
+public static class ExecutorClass_Test
 {
     public static string RemoveFirstCharacter(string value)
     {

@@ -10,7 +10,7 @@ public class ExecutingTests
         var args = new[] { "-n=John", "-d=Description", "-i=Info", "-s=splittedTest" };
         var parser = new ArgumentsController<TestExecutionClass_Strings>(args);
         var result = parser.Parse();
-        var executableResults = parser.Execute<ExecutorClass_Test>(result).ToList();
+        var executableResults = parser.Execute(result).ToList();
 
         Assert.Equal(4, executableResults.Count);
         Assert.Equal("ohn", executableResults[0]);
@@ -25,7 +25,7 @@ public class ExecutingTests
         var args = new[] { "-n=", "-d=", "-i=", "-s=splittedTest" };
         var parser = new ArgumentsController<TestExecutionClass_Strings>(args);
         var result = parser.Parse();
-        var executableResults = parser.Execute<ExecutorClass_Test>(result).ToList();
+        var executableResults = parser.Execute(result).ToList();
 
         Assert.Equal(4, executableResults.Count);
         Assert.Equal(string.Empty, executableResults[0]);
@@ -40,7 +40,7 @@ public class ExecutingTests
         var args = new[] { "-n=J", "-d=D", "-i=I", "-s=splittedTest" };
         var parser = new ArgumentsController<TestExecutionClass_Strings>(args);
         var result = parser.Parse();
-        var executableResults = parser.Execute<ExecutorClass_Test>(result).ToList();
+        var executableResults = parser.Execute(result).ToList();
 
         Assert.Equal(4, executableResults.Count);
         Assert.Equal(string.Empty, executableResults[0]);
