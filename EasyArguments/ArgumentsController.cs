@@ -128,6 +128,21 @@ public class ArgumentsController<T>(string[] args) where T : new()
         return result;
     }
 
+    /// <summary>
+    /// Executes the methods annotated with <see cref="ArgumentExecutorAttribute{T2}"/> on the provided object.
+    /// </summary>
+    /// <typeparam name="T2">
+    /// The type of the class containing the methods to execute.
+    /// </typeparam>
+    /// <param name="obj">
+    /// Object with properties annotated with <see cref="ArgumentExecutorAttribute{T2}"/>.
+    /// </param>
+    /// <returns>
+    /// Returns the results of the executed methods.
+    /// </returns>
+    /// <exception cref="MissingMethodException">
+    /// Thrown when a method annotated with <see cref="ArgumentExecutorAttribute{T2}"/> is not found.
+    /// </exception>
     public IEnumerable<object?> Execute<T2>(T obj) where T2 : new()
     {
         var executableArguments = obj!.GetType().GetProperties()
@@ -137,11 +152,10 @@ public class ArgumentsController<T>(string[] args) where T : new()
 
         foreach (var execArg in executableArguments)
         {
-            var executor = new T2();
-            var method = executor.GetType().GetMethod(execArg.Attribute.ExecutorName) 
+            var method = execArg.Attribute.Instance!.GetType().GetMethod(execArg.Attribute.ExecutorName) 
                 ?? throw new MissingMethodException(execArg.Attribute.ExecutorName);
-
-            yield return method.Invoke(executor, [execArg.Value]);
+            
+            yield return method.Invoke(execArg.Attribute.Instance, [execArg.Value]);
         }
     }
 }

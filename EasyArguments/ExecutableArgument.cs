@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace EasyArguments;
 
-internal readonly struct ExecutableArgument<T>(PropertyInfo propertyInfo, object? value, ArgumentExecutorAttribute<T> attribute)
+internal readonly struct ExecutableArgument<T>(PropertyInfo propertyInfo, object? value, ArgumentExecutorAttribute<T> attribute) where T : new()
 {
     public readonly PropertyInfo PropertyInfo { get; } = propertyInfo;
     public readonly object? Value { get; } = value;
