@@ -16,4 +16,8 @@ internal class TestExecutionClass_Strings
     [Argument("-i", "--info", Description = "The information")]
     [ArgumentExecutor<ExecutorClass_Test>("RemoveFirstCharacter")]
     public string? Information { get; set; }
+
+    [Argument("-s", "--split", Description = "Split the string in half")]
+    [ArgumentExecutor<ExecutorClass_Test>("SplitStringInHalf")]
+    public string? Split { get; set; }
 }
