@@ -3,7 +3,6 @@ using EasyArguments.Tests.DataTest;
 
 namespace EasyArguments.Tests;
 
-
 public class ParsingTests
 {
     [Fact]

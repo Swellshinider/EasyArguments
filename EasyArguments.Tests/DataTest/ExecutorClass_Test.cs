@@ -19,4 +19,15 @@ public static class ExecutorClass_Test
             return value;
         return value[..(value.Length / 2)];
     }
+
+    public static string RemoveLastCharacter(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        if (value.Length == 1)
+            return string.Empty;
+
+        return value[..^1];
+    }
 }

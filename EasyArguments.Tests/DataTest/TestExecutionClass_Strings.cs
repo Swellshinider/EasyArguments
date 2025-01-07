@@ -20,4 +20,9 @@ internal class TestExecutionClass_Strings
     [Argument("-s", "--split", Description = "Split the string in half")]
     [ArgumentExecutor(typeof(ExecutorClass_Test), "SplitStringInHalf")]
     public string? Split { get; set; }
+
+    [Argument("-l", "--last", Description = "Remove the last character")]
+    [ArgumentExecutor(typeof(ExecutorClass_Test), "RemoveLastCharacter")]
+    public string? Last { get; set; }
+    
 }

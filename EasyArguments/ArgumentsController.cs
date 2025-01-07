@@ -2,7 +2,6 @@
 using EasyArguments.Enums;
 using EasyArguments.Exceptions;
 using System.Collections;
-using System.Linq;
 using System.Reflection;
 
 namespace EasyArguments;
@@ -21,7 +20,7 @@ namespace EasyArguments;
 public class ArgumentsController<T>(string[] args) where T : new()
 {
     private readonly string[] _args = args;
-    private const double Tolerance = 1e-10;
+    private const decimal Tolerance = 1e-10m;
 
     /// <summary>
     /// Parses the arguments and maps them to the properties of the type <typeparamref name="T"/>.
@@ -143,7 +142,7 @@ public class ArgumentsController<T>(string[] args) where T : new()
 
                     var propInfo = argumentNoSplit.PropertyInfo;
 
-                    if (propInfo.PropertyType == typeof(Nullable<bool>))
+                    if (propInfo.PropertyType == typeof(bool?))
                         propInfo.SetValue(result, (bool?)true);
                     else if (propInfo.PropertyType == typeof(bool))
                         propInfo.SetValue(result, true);
@@ -165,29 +164,20 @@ public class ArgumentsController<T>(string[] args) where T : new()
 
     private static bool IsArgumentRequired(Argument argument)
     {
-        // Determine if an argument is required based on:
-        // 1. The `argument.Attribute.Required` property.
-        // 2. The presence of a default value on the property (if Required == AutoDetect).
-        // Adjust logic as necessary.
         if (argument.Attribute.Required == ArgumentRequirement.Required)
             return true;
 
         if (argument.Attribute.Required == ArgumentRequirement.Optional)
             return false;
 
-        // AutoDetect logic:
-        // If property has a default value (for example, it's a nullable or has a default), consider it optional.
-        // Otherwise, required.
         var property = argument.PropertyInfo;
-        if ((property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) == null) && property.GetValue(Activator.CreateInstance(property.DeclaringType!)) == null)
+
+        if (property.PropertyType.IsValueType && 
+            Nullable.GetUnderlyingType(property.PropertyType) == null && 
+            property.GetValue(Activator.CreateInstance(property.DeclaringType!)) == null)
         {
-            // Non-nullable value type with no default => required
             return true;
         }
-
-        // For reference types or nullable value types without a set default, treat as required if no default.
-        // This logic can be adjusted based on your needs.
-        // To truly detect a default, you might rely on `DefaultValueAttribute` or similar.
 
         return false;
     }
@@ -197,7 +187,7 @@ public class ArgumentsController<T>(string[] args) where T : new()
         var propertyType = foundArgument.PropertyInfo.PropertyType;
 
         // Handle numeric values first
-        if (double.TryParse(value, out double number))
+        if (decimal.TryParse(value, out var number))
         {
             // Floating types
             if (propertyType == typeof(float) || propertyType == typeof(double) || propertyType == typeof(decimal))
