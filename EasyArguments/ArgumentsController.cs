@@ -1,7 +1,6 @@
 ﻿using EasyArguments.Attributes;
 using EasyArguments.Enums;
 using EasyArguments.Exceptions;
-using System.Collections;
 using System.Reflection;
 
 namespace EasyArguments;
@@ -9,255 +8,88 @@ namespace EasyArguments;
 /// <summary>
 /// Parses command-line arguments and maps them to the properties of a specified class.
 /// </summary>
-/// <typeparam name="T">
-/// The type of the class to which arguments will be mapped. 
-/// Must have a parameterless constructor and be annotated with <see cref="ArgumentsControllerAttribute"/>.
-/// </typeparam>
-/// <remarks>
-/// Initializes a new instance of the <see cref="ArgumentsController{T}"/> class with the specified arguments.
-/// </remarks>
-/// <param name="args">An array of command-line arguments to parse.</param>
-public class ArgumentsController<T>(string[] args) where T : new()
+public class ArgumentsController
 {
-    private readonly string[] _args = args;
-    private const decimal Tolerance = 1e-10m;
+	private readonly string[] _args;
 
-    /// <summary>
-    /// Parses the arguments and maps them to the properties of the type <typeparamref name="T"/>.
-    /// </summary>
-    /// <returns>
-    /// An instance of <typeparamref name="T"/> with its properties set according to the parsed arguments.
-    /// </returns>
-    /// <exception cref="MissingArgumentsControllerAttributeException">
-    /// Thrown when the type <typeparamref name="T"/> is not decorated with <see cref="ArgumentsControllerAttribute"/>.
-    /// </exception>
-    /// <exception cref="UnknownArgumentException">
-    /// Thrown when an argument is provided that does not match any property in <typeparamref name="T"/>.
-    /// </exception>
-    /// <exception cref="InvalidArgumentTypeException">
-    /// Thrown when an argument cannot be converted to the required type for a property in <typeparamref name="T"/>.
-    /// </exception>
-    public T Parse()
-    {
-        var result = new T();
-        var controllerAttribute = typeof(T).GetCustomAttribute<ArgumentsControllerAttribute>()
-            ?? throw new MissingArgumentsControllerAttributeException();
+	public ArgumentsController(string[] argv)
+	{
+		_args = argv;
+	}
 
-        var respectOrder = controllerAttribute.RespectOrder;
+	public T Parse<T>() where T : new()
+	{
+		var result = new T();
 
-        var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-        var arguments = properties
-            .Where(p => p.GetCustomAttribute<ArgumentAttribute>() != null)
-            .Select(p => new Argument(p, p.GetCustomAttribute<ArgumentAttribute>()!))
-            .ToList();
+		// Fetch controller-level attributes
+		var controllerAttribute = typeof(T).GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingArgumentsControllerAttributeException();
 
-        if (respectOrder)
-        {
-            // If we are respecting order, we assume the arguments come in the same order as the properties.
-            // Here we check if the user provided more arguments than we have properties or fewer.
-            if (_args.Length > arguments.Count)
-            {
-                // More arguments than expected:
-                // Throw UnknownArgumentException for the extra arguments.
-                // This behavior can be adjusted as needed.
-                throw new UnknownArgumentException(_args[arguments.Count]);
-            }
+		var respectOrder = controllerAttribute.RespectOrder;
+		var autoHelpArgument = controllerAttribute.AutoHelpArgument;
+		var separators = controllerAttribute.Separators;
 
-            for (int i = 0; i < arguments.Count; i++)
-            {
-                var foundArgument = arguments[i];
-                // If the user provided fewer arguments than the number of properties:
-                // If 'Required' is true and argument not provided, throw an exception.
-                // If optional, you can skip. For simplicity, let's assume everything is required unless proven otherwise.
-                if (i >= _args.Length)
-                {
-                    // Check if required
-                    bool isRequired = IsArgumentRequired(foundArgument);
-                    if (isRequired)
-                        throw new MissingRequiredArgumentException(string.Join(", ", foundArgument.Attribute.ArgumentNames));
-                    // If not required and no argument given, continue
-                    continue;
-                }
+		// Fetch properties with ArgumentAttribute
+		var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+			.Where(p => p.GetCustomAttribute<ArgumentAttribute>() != null)
+			.Select(p => new Argument(p, p.GetCustomAttribute<ArgumentAttribute>()!))
+			.ToList();
 
-                var inputArgument = _args[i];
+		if (autoHelpArgument && _args.Any(arg => arg == "-h" || arg == "--help"))
+		{
+			PrintHelp(properties);
+			Environment.Exit(0);
+		}
 
-                if (inputArgument.Contains('='))
-                {
-                    var split = inputArgument.Split('=', 2);
-                    // Use a limit of 2 so that 'value' can contain '=' if needed
-                    var key = split[0];
-                    var value = split.Length > 1 ? split[1] : string.Empty;
+		foreach (var arg in _args)
+		{
+			// Split the argument into key-value pairs based on separators
+			var separator = GetSeparator(arg, separators);
+			if (separator == null) continue;
 
-                    // Check if the key matches one of the allowed argument names
-                    if (!foundArgument.Attribute.ArgumentNames.Contains(key))
-                        throw new IncorrectArgumentOrderException(key, string.Join(", ", foundArgument.Attribute.ArgumentNames));
+			var parts = arg.Split([separator], 2, StringSplitOptions.RemoveEmptyEntries);
+			if (parts.Length < 2) continue;
 
-                    SetPropertyValue(result, foundArgument, key, value);
-                }
-                else
-                {
-                    // No '=' means it's likely a boolean flag
-                    if (!foundArgument.Attribute.ArgumentNames.Contains(inputArgument))
-                        throw new UnknownArgumentException(inputArgument);
+			var key = parts[0].TrimStart('-');
+			var value = parts[1];
 
-                    var propInfo = foundArgument.PropertyInfo;
-                    if (propInfo.PropertyType == typeof(bool) || propInfo.PropertyType == typeof(bool?))
-                    {
-                        propInfo.SetValue(result, true);
-                    }
-                    else
-                    {
-                        // If no '=' and not boolean, then it's invalid format for ordered mode
-                        throw new InvalidArgumentTypeException(inputArgument, propInfo.PropertyType);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Original logic for non-ordered parsing
-            for (int i = 0; i < _args.Length; i++)
-            {
-                var inputArgument = _args[i];
+			// Find the matching property
+			var property = properties.FirstOrDefault(p => p.Attribute.ArgumentNames.Contains(key));
+			if (property.Equals(default)) continue;
 
-                if (inputArgument.Contains('='))
-                {
-                    var split = inputArgument.Split('=');
-                    var key = split[0];
-                    var value = split.Length > 1 ? split[1] : string.Empty;
+			// Convert and assign the value to the property
+			var propertyType = property.PropertyInfo.PropertyType;
+			var convertedValue = Convert.ChangeType(value, propertyType);
+			property.PropertyInfo.SetValue(result, convertedValue);
+		}
 
-                    var foundArgument = arguments.Find(a => a.Attribute.ArgumentNames.Contains(key));
+		foreach (var property in properties)
+		{
+			if (property.Attribute.Required && property.PropertyInfo.GetValue(result) == null)
+			{
+				throw new ArgumentException($"Missing required argument: {string.Join(", ", property.Attribute.ArgumentNames)}");
+			}
+		}
 
-                    if (foundArgument.Equals(default(Argument)))
-                        throw new UnknownArgumentException(key);
+		return result;
+	}
 
-                    SetPropertyValue(result, foundArgument, key, value);
-                }
-                else
-                {
-                    var argumentNoSplit = arguments.Find(a => a.Attribute.ArgumentNames.Contains(inputArgument));
+	private static string? GetSeparator(string arg, SeparatorTypes separators)
+	{
+		if (separators.HasFlag(SeparatorTypes.Equals) && arg.Contains('=')) return "=";
+		if (separators.HasFlag(SeparatorTypes.Space) && arg.Contains(' ')) return " ";
+		if (separators.HasFlag(SeparatorTypes.Arrow) && arg.Contains("->")) return "->";
+		if (separators.HasFlag(SeparatorTypes.Dot) && arg.Contains('.')) return ".";
+		return null;
+	}
 
-                    if (argumentNoSplit.Equals(default(Argument)))
-                        throw new UnknownArgumentException(inputArgument);
-
-                    var propInfo = argumentNoSplit.PropertyInfo;
-
-                    if (propInfo.PropertyType == typeof(bool?))
-                        propInfo.SetValue(result, (bool?)true);
-                    else if (propInfo.PropertyType == typeof(bool))
-                        propInfo.SetValue(result, true);
-                    else
-                        throw new InvalidArgumentTypeException(inputArgument, typeof(bool));
-                }
-            }
-        }
-
-        // Validate required arguments if needed (if you rely on auto detect or have a required property)
-        foreach (var arg in arguments)
-        {
-            if (IsArgumentRequired(arg) && arg.PropertyInfo.GetValue(result) == null)
-                throw new MissingRequiredArgumentException(string.Join(", ", arg.Attribute.ArgumentNames));
-        }
-
-        return result;
-    }
-
-    private static bool IsArgumentRequired(Argument argument)
-    {
-        if (argument.Attribute.Required == ArgumentRequirement.Required)
-            return true;
-
-        if (argument.Attribute.Required == ArgumentRequirement.Optional)
-            return false;
-
-        var property = argument.PropertyInfo;
-
-        if (property.PropertyType.IsValueType && 
-            Nullable.GetUnderlyingType(property.PropertyType) == null && 
-            property.GetValue(Activator.CreateInstance(property.DeclaringType!)) == null)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static void SetPropertyValue(T result, Argument foundArgument, string key, string value)
-    {
-        var propertyType = foundArgument.PropertyInfo.PropertyType;
-
-        // Handle numeric values first
-        if (decimal.TryParse(value, out var number))
-        {
-            // Floating types
-            if (propertyType == typeof(float) || propertyType == typeof(double) || propertyType == typeof(decimal))
-            {
-                foundArgument.PropertyInfo.SetValue(result, Convert.ChangeType(number, propertyType));
-                return;
-            }
-
-            // Integer types
-            if (propertyType == typeof(short) || propertyType == typeof(int) || propertyType == typeof(long))
-            {
-                if (Math.Abs(number % 1) > Tolerance)
-                    throw new InvalidArgumentTypeException(key, propertyType);
-
-                var integerNumber = (long)number;
-
-                // Bounds checking
-                if ((propertyType == typeof(short) && (integerNumber < short.MinValue || integerNumber > short.MaxValue)) ||
-                    (propertyType == typeof(int) && (integerNumber < int.MinValue || integerNumber > int.MaxValue)))
-                    throw new InvalidArgumentTypeException(key, propertyType);
-
-                foundArgument.PropertyInfo.SetValue(result, Convert.ChangeType(integerNumber, propertyType));
-                return;
-            }
-
-            throw new InvalidArgumentTypeException(key, propertyType);
-        }
-        else
-        {
-            // Non-numeric values
-            try
-            {
-                foundArgument.PropertyInfo.SetValue(result, Convert.ChangeType(value, propertyType));
-            }
-            catch (Exception)
-            {
-                throw new InvalidArgumentTypeException(key, propertyType);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Executes the methods specified by the <see cref="ArgumentExecutorAttribute"/> on the properties of the specified object.
-    /// </summary>
-    /// <param name="obj">
-    /// The object whose properties contain the methods to execute.
-    /// </param>
-    /// <returns>
-    /// Returns an <see cref="IEnumerable"/> of the results of the executed methods.
-    /// </returns>
-    /// <exception cref="MissingMethodException">
-    /// Thrown when the method specified by the <see cref="ArgumentExecutorAttribute"/> is not found.
-    /// </exception>
-    public IEnumerable<object?> Execute(T obj)
-    {
-        var executableArguments = obj!.GetType().GetProperties()
-            .Where(p => p.GetCustomAttribute<ArgumentExecutorAttribute>() != null)
-            .Select(p => new
-            {
-                Property = p,
-                Value = p.GetValue(obj),
-                ExecutorAttribute = p.GetCustomAttribute<ArgumentExecutorAttribute>()
-            });
-
-        foreach (var execArg in executableArguments)
-        {
-            var method = execArg.ExecutorAttribute!.ExecutorType.GetMethod(execArg.ExecutorAttribute.MethodName, BindingFlags.Static | BindingFlags.Public)
-                ?? throw new MissingMethodException($"Method {execArg.ExecutorAttribute.MethodName} not found in {execArg.ExecutorAttribute.ExecutorType}.");
-
-            yield return method.Invoke(null, [execArg.Value]);
-        }
-    }
+	private static void PrintHelp(IEnumerable<Argument> properties)
+	{
+		Console.WriteLine("Available arguments:");
+		foreach (var property in properties)
+		{
+			var names = string.Join(", ", property.Attribute.ArgumentNames);
+			Console.WriteLine($"{names}: {property.Attribute.Description} (Required: {property.Attribute.Required})");
+		}
+	}
 }
