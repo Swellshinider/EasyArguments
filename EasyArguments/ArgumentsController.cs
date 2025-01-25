@@ -8,6 +8,8 @@ namespace EasyArguments;
 
 public static class ArgumentsController
 {
+	public static bool RedirectErrorToConsole { get; set; } = false;
+
 	public static T Parse<T>(IEnumerable<string> args) where T : new()
 	{
 		ArgumentNullException.ThrowIfNull(args, nameof(args));
@@ -29,7 +31,7 @@ public static class ArgumentsController
 
 		// args = "-v" "--help" "-o=caminho_path"
 		if (respectOrder)
-			ParseWithOrder(result, type, arguments, [.. args], separator);
+			ParseWithOrder(result, arguments, [.. args], separator);
 		else
 		{
 
@@ -38,48 +40,127 @@ public static class ArgumentsController
 		return result;
 	}
 
-	private static void ParseWithOrder<T>(T result, Type type, List<Argument> arguments, List<string> args, char separator) where T : new()
+	private static void ParseWithOrder<T>(T result, List<Argument> arguments, List<string> args, char separator) where T : new()
 	{
 		foreach (var argument in arguments)
 		{
 			if (args.Count == 0)
 			{
 				if (argument.Attribute.Required)
-					throw new ArgumentException($"Required argument '{argument.Attribute.ShortName ?? argument.Attribute.LongName}' is missing.");
+					LaunchError($"Required argument '{argument.GetName()}' is missing.");
 
 				continue;
 			}
-
-			// Current argument string
+			
 			var currentArg = args[0];
-			string? value = null;
+			var shortName = argument.Attribute.ShortName;
+			var longName = argument.Attribute.LongName;
 
-			// TODO: handle separator as '\0' and separator as ' '
-			var parts = currentArg.Split(separator, 2);
-
-			if (parts[0].Equals(argument.Attribute.ShortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
-				parts[0].Equals(argument.Attribute.LongName ?? "", StringComparison.CurrentCultureIgnoreCase))
+			if (argument.PropertyInfo.PropertyType.IsClass &&
+				argument.PropertyInfo.PropertyType != typeof(string))
 			{
-				value = parts.Length > 1 ? parts[1] : null;
+				if (!currentArg.ArgumentNameEquals(shortName, longName))
+				{
+					if (argument.Attribute.Required)
+						LaunchError($"Required argument '{argument.GetName()}' is missing.");
+					
+					continue;
+				}
+
+				object? innerResult;
+				try 
+				{
+					innerResult = argument.PropertyInfo.PropertyType.Assembly.CreateInstance(argument.PropertyInfo.PropertyType.FullName!);
+				}
+				catch (MissingMethodException) 
+				{
+					LaunchError($"Public constructor on type '{argument.PropertyInfo.PropertyType.FullName}' not found!");
+					return;
+				}
+
 				args.RemoveAt(0);
-			}
-			else
-			{
-				if (argument.PropertyInfo.PropertyType == typeof(bool) &&
-					currentArg.Equals(argument.Attribute.ShortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
-					currentArg.Equals(argument.Attribute.LongName ?? "", StringComparison.CurrentCultureIgnoreCase))
-					value = "True";
+				argument.PropertyInfo.SetValue(result, innerResult);
+				ParseWithOrder(innerResult, argument.Children, args, separator);
+				continue;
 			}
 
-			if (value != null)
+			// The currentArg fits perfectly with the name, so it's a boolean
+			// Otherwise no value was found to the provided argument
+			if (currentArg.ArgumentNameEquals(shortName, longName))
 			{
-				var propertyType = argument.PropertyInfo.PropertyType;
-				var convertedValue = Convert.ChangeType(value, propertyType);
-				argument.PropertyInfo.SetValue(result, convertedValue);
+				if (argument.PropertyInfo.PropertyType == typeof(bool) || 
+					argument.PropertyInfo.PropertyType == typeof(bool?))
+				{
+					argument.PropertyInfo.SetValue(result, !argument.Attribute.InvertBoolean);
+					args.RemoveAt(0);
+					continue;
+				}
+				else
+				{
+					LaunchError($"No value found for the provided argument '{currentArg}'.");
+					return;
+				}
 			}
-			else if (argument.Attribute.Required)
-				throw new ArgumentException($"Required argument '{argument.Attribute.ShortName ?? argument.Attribute.LongName}' is missing a value.");
+
+			var parts = currentArg.Split(separator, 2, StringSplitOptions.TrimEntries);
+
+			if (parts.Length != 2)
+			{
+				LaunchError($"Argument '{currentArg}' needs a value.");
+				return;
+			}
+
+			// Ex: parts = ["-o", "test"]
+			// If "-o" does not match the current argument, but the argument is required, throw error
+			if (!parts[0].ArgumentNameEquals(shortName, longName))
+			{
+				if (argument.Attribute.Required) 
+				{
+					LaunchError($"Provided argument '{currentArg}' does not match the required order, see --help for more information.");
+					return;
+				}
+				
+				continue;
+			}
+
+			var value = parts[1];
+			object? convertedValue;
+
+			try
+			{
+				convertedValue = Convert.ChangeType(value, argument.PropertyInfo.PropertyType);
+			}
+			catch (FormatException)
+			{
+				if (!argument.Attribute.Required)
+					continue;
+
+				var errorMessage = $"Argument {argument.GetName()} requires type '{argument.PropertyInfo.PropertyType.Name}', received: '{value}'.";
+				LaunchError(errorMessage);
+				return;
+			}
+
+			argument.PropertyInfo.SetValue(result, convertedValue);
+			args.RemoveAt(0);
 		}
+	}
+
+	private static bool ArgumentNameEquals(this string argv, string? shortName, string? longName)
+	{
+		return argv.Equals(shortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
+			   argv.Equals(longName ?? "", StringComparison.CurrentCultureIgnoreCase);
+	}
+
+	private static void LaunchError(string message)
+	{
+		if (RedirectErrorToConsole)
+		{
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.Error.WriteLine(message);
+			Console.ResetColor();
+		}
+		else
+			throw new ArgumentException(message);
 	}
 
 	private static List<Argument> GetArguments(this Type type, Argument? parent = null)
@@ -99,7 +180,7 @@ public static class ArgumentsController
 
 			if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
 			{
-				var commandArgument = new Argument(prop, argumentAttrib);
+				var commandArgument = new Argument(parent, prop, argumentAttrib);
 
 				if (parent != null)
 					parent.Children.Add(commandArgument);
@@ -110,7 +191,7 @@ public static class ArgumentsController
 				continue;
 			}
 
-			var argument = new Argument(prop, argumentAttrib);
+			var argument = new Argument(parent, prop, argumentAttrib);
 
 			if (parent != null)
 				parent.Children.Add(argument);

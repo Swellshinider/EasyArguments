@@ -42,9 +42,22 @@ public sealed class ArgumentAttribute : Attribute
 	/// Gets the help message for the argument, describing its purpose.
 	/// </summary>
 	public string? HelpMessage { get; }
-	
+
 	/// <summary>
 	/// Gets or sets if this argument is required.
 	/// </summary>
-	public bool Required { get; set; } = true;
+	/// <remarks>
+	/// Defaults to <c>false</c>.
+	/// </remarks>
+	public bool Required { get; set; } = false;
+
+	/// <summary>
+	/// Gets or sets a value indicating whether the argument value should be inverted for boolean properties.
+	/// (only works for boolean types)
+	/// </summary>
+	/// <remarks>
+	/// When set to <c>true</c>, passing this argument will result in the associated boolean property being set to <c>false</c> instead of <c>true</c>.
+	/// Defaults to <c>false</c>.
+	/// </remarks>
+	public bool InvertBoolean { get; set; }
 }

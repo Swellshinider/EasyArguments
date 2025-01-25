@@ -6,6 +6,8 @@
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public sealed class ArgumentsControllerAttribute : Attribute
 {
+	private char _separator = '=';
+	
 	/// <summary>
 	/// Gets or sets a value indicating whether the order of arguments should be respected during parsing.
 	/// </summary>
@@ -15,11 +17,11 @@ public sealed class ArgumentsControllerAttribute : Attribute
 	public bool RespectOrder { get; set; } = true;
 	
 	/// <summary>
-    /// Gets or sets a value indicating whether an automatic help argument should be included.
-    /// </summary>
-    /// <remarks>
-    /// When set to <c>true</c>, a help argument (e.g., <c>-h</c> and <c>--help</c>) is automatically generated to display usage information. Defaults to <c>true</c>.
-    /// </remarks>
+	/// Gets or sets a value indicating whether an automatic help argument should be included.
+	/// </summary>
+	/// <remarks>
+	/// When set to <c>true</c>, a help argument (e.g., <c>-h</c> and <c>--help</c>) is automatically generated to display usage information. Defaults to <c>true</c>.
+	/// </remarks>
 	public bool AutoHelpArgument { get; set; } = true;
 	
 	/// <summary>
@@ -28,5 +30,15 @@ public sealed class ArgumentsControllerAttribute : Attribute
 	/// <remarks>
 	/// Defaults to <c>'='</c>
 	/// </remarks>
-	public char Separator { get; set; } = '=';
+	public char Separator 
+	{
+		get => _separator;
+		set 
+		{
+			if (value == '\0')
+				throw new ArgumentException($"Invalid separator value '\\0'");
+			
+			_separator = value;
+		}
+	}
 }
