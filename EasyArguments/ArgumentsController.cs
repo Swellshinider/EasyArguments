@@ -1,15 +1,28 @@
 ﻿using EasyArguments.Attributes;
 using EasyArguments.Exceptions;
-using System.Collections;
 using System.Reflection;
-using System.Text;
 
 namespace EasyArguments;
 
+/// <summary>
+/// Provides utilities for parsing command-line arguments into strongly-typed objects.
+/// </summary>
 public static class ArgumentsController
 {
+	/// <summary>
+	/// Gets or sets a value indicating whether errors should be redirected to the console.
+	/// </summary>
 	public static bool RedirectErrorToConsole { get; set; } = false;
 
+	/// <summary>
+	/// Parses the specified command-line arguments into an instance of the given type.
+	/// </summary>
+	/// <typeparam name="T">The type into which arguments should be parsed. Must have a parameterless constructor.</typeparam>
+	/// <param name="args">The collection of command-line arguments.</param>
+	/// <returns>An instance of <typeparamref name="T"/> populated with the parsed arguments.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="args"/> is null.</exception>
+	/// <exception cref="MissingArgumentsControllerAttributeException">Thrown when the target type does not have the required <see cref="ArgumentsControllerAttribute"/>.</exception>
+	/// <exception cref="ArgumentException">Thrown when parsing fails or required arguments are missing.</exception>
 	public static T Parse<T>(IEnumerable<string> args) where T : new()
 	{
 		ArgumentNullException.ThrowIfNull(args, nameof(args));
@@ -49,7 +62,7 @@ public static class ArgumentsController
 
 				continue;
 			}
-			
+
 			var currentArg = args[0];
 			var shortName = argument.Attribute.ShortName;
 			var longName = argument.Attribute.LongName;
@@ -61,16 +74,16 @@ public static class ArgumentsController
 				{
 					if (argument.Attribute.Required)
 						LaunchError($"Required argument '{argument.GetName()}' is missing.");
-					
+
 					continue;
 				}
 
 				object? innerResult;
-				try 
+				try
 				{
 					innerResult = argument.PropertyInfo.PropertyType.Assembly.CreateInstance(argument.PropertyInfo.PropertyType.FullName!);
 				}
-				catch (MissingMethodException) 
+				catch (MissingMethodException)
 				{
 					LaunchError($"Public constructor on type '{argument.PropertyInfo.PropertyType.FullName}' not found!");
 					return;
@@ -86,7 +99,7 @@ public static class ArgumentsController
 			// Otherwise no value was found to the provided argument
 			if (currentArg.ArgumentNameEquals(shortName, longName))
 			{
-				if (argument.PropertyInfo.PropertyType == typeof(bool) || 
+				if (argument.PropertyInfo.PropertyType == typeof(bool) ||
 					argument.PropertyInfo.PropertyType == typeof(bool?))
 				{
 					argument.PropertyInfo.SetValue(result, !argument.Attribute.InvertBoolean);
@@ -112,12 +125,12 @@ public static class ArgumentsController
 			// If "-o" does not match the current argument, but the argument is required, throw error
 			if (!parts[0].ArgumentNameEquals(shortName, longName))
 			{
-				if (argument.Attribute.Required) 
+				if (argument.Attribute.Required)
 				{
 					LaunchError($"Provided argument '{currentArg}' does not match the required order, see --help for more information.");
 					return;
 				}
-				
+
 				continue;
 			}
 
