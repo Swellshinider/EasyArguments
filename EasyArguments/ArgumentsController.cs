@@ -33,9 +33,7 @@ public static class ArgumentsController
 		if (respectOrder)
 			ParseWithOrder(result, arguments, [.. args], separator);
 		else
-		{
-
-		}
+			throw new ArgumentException($"Parsing arguments without order is not implemented yet.");
 
 		return result;
 	}
