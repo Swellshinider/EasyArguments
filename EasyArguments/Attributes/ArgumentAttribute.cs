@@ -1,18 +1,50 @@
 ﻿namespace EasyArguments.Attributes;
 
 /// <summary>
-/// An attribute used to associate one or more argument names with a property.
+/// Represents an attribute that can be applied to properties to specify command-line argument metadata.
 /// </summary>
 /// <remarks>
-/// This attribute can be applied to properties to specify argument names, a description and if it's required.
+/// This attribute is designed for properties that are used to map command-line arguments.
+/// It allows specifying short and long argument names, help messages, and a separator character for parsing.
 /// </remarks>
-/// <param name="argumentNames">An array of argument names associated with the property.</param>
-[AttributeUsage(AttributeTargets.Property)]
-public class ArgumentAttribute(params string[] argumentNames) : Attribute
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+public sealed class ArgumentAttribute : Attribute
 {
-	public string[] ArgumentNames { get; } = argumentNames;
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ArgumentAttribute"/> class with specified short name, long name, and help message.
+	/// </summary>
+	/// <param name="shortName">The short name for the argument (e.g., "-s"). Can be <c>null</c>.</param>
+	/// <param name="longName">The long name for the argument (e.g., "--sample"). Can be <c>null</c>.</param>
+	/// <param name="helpMessage">A description of the argument's purpose, displayed in help output.</param>
+	/// <remarks>
+	/// If both <paramref name="shortName"/> and <paramref name="longName"/> are <c>null</c> (Not recommended), 
+	/// the long name will default to the lowercase form of the property name prefixed with a dash 
+	/// (e.g., for a property named <c>Name</c>, the long name would be <c>--name</c>).
+	/// </remarks>
+	public ArgumentAttribute(string? shortName, string? longName, string? helpMessage)
+	{
+		ShortName = shortName;
+		LongName = longName;
+		HelpMessage = helpMessage;
+	}
 
-	public required string Description { get; set; }
+	/// <summary>
+	/// Gets or sets the short name for the argument.
+	/// </summary>
+	public string? ShortName { get; internal set; }
 
-	public bool Required { get; set; } = false;
+	/// <summary>
+	/// Gets or sets the long name for the argument.
+	/// </summary>
+	public string? LongName { get; internal set; }
+
+	/// <summary>
+	/// Gets the help message for the argument, describing its purpose.
+	/// </summary>
+	public string? HelpMessage { get; }
+	
+	/// <summary>
+	/// Gets or sets if this argument is required.
+	/// </summary>
+	public bool Required { get; set; } = true;
 }

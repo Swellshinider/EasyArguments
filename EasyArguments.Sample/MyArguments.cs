@@ -5,9 +5,12 @@ namespace EasyArguments.Sample;
 [ArgumentsController]
 public class ArgumentsSample
 {
-	[Argument("-v", "-version", Description = "Display version", Required = false)]
+	[Argument("-v", "--version", "Display version", Required = false)]
 	public bool DisplayVersion { get; set; }
 
-	[Argument("-o", "--out", Description = "Defines the output folder", Required = false)]
+	[Argument("-o", "--out", "Defines the output folder", Required = false)]
 	public string? OutputFolder { get; set; }
+	
+	[Argument(null, "start", "Start the application command", Required = false)]
+	public StartArguments? StartCommand { get; set; }
 }

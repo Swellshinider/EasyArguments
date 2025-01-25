@@ -1,95 +1,123 @@
 ﻿using EasyArguments.Attributes;
-using EasyArguments.Enums;
 using EasyArguments.Exceptions;
+using System.Collections;
 using System.Reflection;
+using System.Text;
 
 namespace EasyArguments;
 
-/// <summary>
-/// Parses command-line arguments and maps them to the properties of a specified class.
-/// </summary>
-public class ArgumentsController
+public static class ArgumentsController
 {
-	private readonly string[] _args;
-
-	public ArgumentsController(string[] argv)
+	public static T Parse<T>(IEnumerable<string> args) where T : new()
 	{
-		_args = argv;
-	}
+		ArgumentNullException.ThrowIfNull(args, nameof(args));
 
-	public T Parse<T>() where T : new()
-	{
 		var result = new T();
+		var type = typeof(T);
 
 		// Fetch controller-level attributes
-		var controllerAttribute = typeof(T).GetCustomAttribute<ArgumentsControllerAttribute>()
-			?? throw new MissingArgumentsControllerAttributeException();
+		var controllerAttribute = type.GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingArgumentsControllerAttributeException(type);
+
+		if (!args.Any())
+			return result;
 
 		var respectOrder = controllerAttribute.RespectOrder;
 		var autoHelpArgument = controllerAttribute.AutoHelpArgument;
-		var separators = controllerAttribute.Separators;
+		var separator = controllerAttribute.Separator;
+		var arguments = type.GetArguments();
 
-		// Fetch properties with ArgumentAttribute
-		var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-			.Where(p => p.GetCustomAttribute<ArgumentAttribute>() != null)
-			.Select(p => new Argument(p, p.GetCustomAttribute<ArgumentAttribute>()!))
-			.ToList();
-
-		if (autoHelpArgument && _args.Any(arg => arg == "-h" || arg == "--help"))
+		// args = "-v" "--help" "-o=caminho_path"
+		if (respectOrder)
+			ParseWithOrder(result, type, arguments, [.. args], separator);
+		else
 		{
-			PrintHelp(properties);
-			Environment.Exit(0);
-		}
 
-		foreach (var arg in _args)
-		{
-			// Split the argument into key-value pairs based on separators
-			var separator = GetSeparator(arg, separators);
-			if (separator == null) continue;
-
-			var parts = arg.Split([separator], 2, StringSplitOptions.RemoveEmptyEntries);
-			if (parts.Length < 2) continue;
-
-			var key = parts[0].TrimStart('-');
-			var value = parts[1];
-
-			// Find the matching property
-			var property = properties.FirstOrDefault(p => p.Attribute.ArgumentNames.Contains(key));
-			if (property.Equals(default)) continue;
-
-			// Convert and assign the value to the property
-			var propertyType = property.PropertyInfo.PropertyType;
-			var convertedValue = Convert.ChangeType(value, propertyType);
-			property.PropertyInfo.SetValue(result, convertedValue);
-		}
-
-		foreach (var property in properties)
-		{
-			if (property.Attribute.Required && property.PropertyInfo.GetValue(result) == null)
-			{
-				throw new ArgumentException($"Missing required argument: {string.Join(", ", property.Attribute.ArgumentNames)}");
-			}
 		}
 
 		return result;
 	}
 
-	private static string? GetSeparator(string arg, SeparatorTypes separators)
+	private static void ParseWithOrder<T>(T result, Type type, List<Argument> arguments, List<string> args, char separator) where T : new()
 	{
-		if (separators.HasFlag(SeparatorTypes.Equals) && arg.Contains('=')) return "=";
-		if (separators.HasFlag(SeparatorTypes.Space) && arg.Contains(' ')) return " ";
-		if (separators.HasFlag(SeparatorTypes.Arrow) && arg.Contains("->")) return "->";
-		if (separators.HasFlag(SeparatorTypes.Dot) && arg.Contains('.')) return ".";
-		return null;
+		foreach (var argument in arguments)
+		{
+			if (args.Count == 0)
+			{
+				if (argument.Attribute.Required)
+					throw new ArgumentException($"Required argument '{argument.Attribute.ShortName ?? argument.Attribute.LongName}' is missing.");
+
+				continue;
+			}
+
+			// Current argument string
+			var currentArg = args[0];
+			string? value = null;
+
+			// TODO: handle separator as '\0' and separator as ' '
+			var parts = currentArg.Split(separator, 2);
+
+			if (parts[0].Equals(argument.Attribute.ShortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
+				parts[0].Equals(argument.Attribute.LongName ?? "", StringComparison.CurrentCultureIgnoreCase))
+			{
+				value = parts.Length > 1 ? parts[1] : null;
+				args.RemoveAt(0);
+			}
+			else
+			{
+				if (argument.PropertyInfo.PropertyType == typeof(bool) &&
+					currentArg.Equals(argument.Attribute.ShortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
+					currentArg.Equals(argument.Attribute.LongName ?? "", StringComparison.CurrentCultureIgnoreCase))
+					value = "True";
+			}
+
+			if (value != null)
+			{
+				var propertyType = argument.PropertyInfo.PropertyType;
+				var convertedValue = Convert.ChangeType(value, propertyType);
+				argument.PropertyInfo.SetValue(result, convertedValue);
+			}
+			else if (argument.Attribute.Required)
+				throw new ArgumentException($"Required argument '{argument.Attribute.ShortName ?? argument.Attribute.LongName}' is missing a value.");
+		}
 	}
 
-	private static void PrintHelp(IEnumerable<Argument> properties)
+	private static List<Argument> GetArguments(this Type type, Argument? parent = null)
 	{
-		Console.WriteLine("Available arguments:");
-		foreach (var property in properties)
+		var arguments = new List<Argument>();
+		_ = type.GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingArgumentsControllerAttributeException(type);
+
+		var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+
+		foreach (var prop in properties)
 		{
-			var names = string.Join(", ", property.Attribute.ArgumentNames);
-			Console.WriteLine($"{names}: {property.Attribute.Description} (Required: {property.Attribute.Required})");
+			var argumentAttrib = prop.GetCustomAttribute<ArgumentAttribute>();
+
+			if (argumentAttrib == null)
+				continue;
+
+			if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
+			{
+				var commandArgument = new Argument(prop, argumentAttrib);
+
+				if (parent != null)
+					parent.Children.Add(commandArgument);
+				else
+					arguments.Add(commandArgument);
+
+				arguments.AddRange(prop.PropertyType.GetArguments(commandArgument));
+				continue;
+			}
+
+			var argument = new Argument(prop, argumentAttrib);
+
+			if (parent != null)
+				parent.Children.Add(argument);
+			else
+				arguments.Add(argument);
 		}
+
+		return arguments;
 	}
 }

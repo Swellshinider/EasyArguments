@@ -1,31 +1,32 @@
-﻿using EasyArguments.Enums;
-
-namespace EasyArguments.Attributes;
+﻿namespace EasyArguments.Attributes;
 
 /// <summary>
-/// Specifies that a class is an arguments controller, which is responsible for handling and managing arguments.
+/// An attribute to configure the behavior of a class that defines a group of command-line arguments.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public sealed class ArgumentsControllerAttribute : Attribute
 {
 	/// <summary>
-	/// Gets or sets a value indicating whether the order of arguments should be respected.
-	/// Defaults to <c>true</c>.
+	/// Gets or sets a value indicating whether the order of arguments should be respected during parsing.
 	/// </summary>
+	/// <remarks>
+	/// When set to <c>true</c>, arguments must appear in the specified order. Defaults to <c>true</c>.
+	/// </remarks>
 	public bool RespectOrder { get; set; } = true;
 	
 	/// <summary>
-	/// Gets os sets a value indicating whether the -h and --help argument should be automatically implemented
-	/// Defaults to <c>true</c>
-	/// </summary>
+    /// Gets or sets a value indicating whether an automatic help argument should be included.
+    /// </summary>
+    /// <remarks>
+    /// When set to <c>true</c>, a help argument (e.g., <c>-h</c> and <c>--help</c>) is automatically generated to display usage information. Defaults to <c>true</c>.
+    /// </remarks>
 	public bool AutoHelpArgument { get; set; } = true;
 	
 	/// <summary>
-	/// Gets os sets a value indicating the separators that you wanna use in your argument parser
-	/// Defaults to <c>SeparatorTypes.Equals | SeparatorTypes.Space</c>
+	/// Gets or sets the character used as a separator for parsing arguments.
 	/// </summary>
 	/// <remarks>
-	/// Check <see cref="SeparatorTypes"/> for more information
+	/// Defaults to <c>'='</c>
 	/// </remarks>
-	public SeparatorTypes Separators { get; set; } = SeparatorTypes.Equals | SeparatorTypes.Space;
+	public char Separator { get; set; } = '=';
 }
