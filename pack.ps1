@@ -23,6 +23,15 @@ if (-not $nugetApiKey) {
     exit 1
 }
 
+# Ask for confirmation to publish the package
+$confirmation = Read-Host "Do you want to publish the package? [Y/n]"
+
+if ($confirmation -ne 'Y' -and $confirmation -ne 'y' -and $confirmation -ne '') {
+    Write-Host "Publishing cancelled."
+    Set-Location -Path "..\"
+    exit 0
+}
+
 # Publish the package
 dotnet nuget push $packagePath --source "https://api.nuget.org/v3/index.json" --api-key $nugetApiKey --skip-duplicate
 
