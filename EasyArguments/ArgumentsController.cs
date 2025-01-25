@@ -51,6 +51,67 @@ public static class ArgumentsController
 		return result;
 	}
 
+	/// <summary>
+	/// Executes static methods specified by the <see cref="ExecuteAttribute"/> applied to properties of the given object.
+	/// The method receives the current value of the property, processes it, and optionally assigns the result back to the property.
+	/// Results of the executed methods are returned as an enumerable.
+	/// </summary>
+	/// <typeparam name="T">The type of the object containing the decorated properties.</typeparam>
+	/// <param name="obj">The object whose properties are processed.</param>
+	/// <returns>An enumerable of results from the executed methods.</returns>
+	public static IEnumerable<object?> Execute<T>(T obj)
+	{
+		var type = typeof(T);
+		var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+
+		foreach (var prop in properties)
+		{
+			var executorAttrib = prop.GetCustomAttribute<ExecuteAttribute>();
+
+			if (executorAttrib == null)
+				continue;
+
+			var classType = executorAttrib.ClassType;
+			var methodName = executorAttrib.MethodName;
+
+			// Retrieve the static method info
+			var method = classType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)
+				?? throw new InvalidOperationException($"The method '{methodName}' was not found in the class '{classType.FullName}'.");
+
+			var currentValue = prop.GetValue(obj);
+			var methodParameters = method.GetParameters();
+			object? executionResult;
+
+			// Validate the method signature
+			if (methodParameters.Length == 0)
+			{
+				// Invoke method with no parameters
+				executionResult = method.Invoke(null, null);
+			}
+			else if (methodParameters.Length == 1 && methodParameters[0].ParameterType.IsAssignableFrom(prop.PropertyType))
+			{
+				// Invoke method with the current property value as the parameter
+				executionResult = method.Invoke(null, [currentValue]);
+			}
+			else
+			{
+				// Throw an exception if the method signature is invalid
+				throw new InvalidOperationException(
+					$"The method '{methodName}' in class '{classType.FullName}' must either have no parameters or a single parameter of type '{prop.PropertyType.Name}'.");
+			}
+
+			// Optionally assign the result back to the property if allowed
+			if (executorAttrib.AssignResultToProperty &&
+				prop.PropertyType.IsAssignableFrom(method.ReturnType) &&
+				prop.CanWrite)
+			{
+				prop.SetValue(obj, executionResult);
+			}
+
+			yield return executionResult;
+		}
+	}
+
 	private static void ParseWithOrder<T>(T result, List<Argument> arguments, List<string> args, char separator) where T : new()
 	{
 		foreach (var argument in arguments)
