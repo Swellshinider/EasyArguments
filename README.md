@@ -26,7 +26,9 @@ EasyArguments is a lightweight .NET library that simplifies the process of parsi
 
 ## Installation
 
-Nuget package coming...
+```bash
+dotnet add package EasyArguments
+```
 
 ## Usage
 
