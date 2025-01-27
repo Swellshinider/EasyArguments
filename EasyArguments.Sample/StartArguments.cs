@@ -2,12 +2,12 @@ using EasyArguments.Attributes;
 
 namespace EasyArguments.Sample;
 
-[ArgumentsController(AutoHelpArgument = true, RespectOrder = true)]
+[ArgumentsController]
 public class StartArguments
 {
-	[Argument("-u", "--url", "Url", Required = false)]
+	[Argument("-u", "--url", "Url", Required = true)]
 	public string? Url { get; set; }
 
-	[Argument("-o", "--output", "Output folder", Required = false)]
+	[Argument("-o", "--output", "Output folder", Required = true)]
 	public string? Output { get; set; }
 }

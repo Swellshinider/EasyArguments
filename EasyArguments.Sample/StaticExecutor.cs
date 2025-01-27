@@ -4,15 +4,20 @@ namespace EasyArguments.Sample;
 
 public static class StaticExecutor 
 {
-	public static void DisplayVersion()	
+	public static void DisplayVersion(bool? version)
 	{
+		if (!version.HasValue || !version.Value) // Argument --version was not called
+			return;
+			
 		Console.Write("Version: ");
-		Console.WriteLine(Assembly.GetExecutingAssembly().ImageRuntimeVersion);
+		Console.WriteLine(Assembly.GetAssembly(typeof(Program))?.ManifestModule.MDStreamVersion);
 	}
 	
-	public static string SaveOutputFolder(string output) 
+	public static void StopApplication(bool? stop) 
 	{
-		Console.WriteLine($"Oh, i saved the output folder: '{output}'");
-		return output.ToUpper();
+		if (!stop.HasValue || !stop.Value)
+			return;
+			
+		Program.IsRunning = false;
 	}
 }

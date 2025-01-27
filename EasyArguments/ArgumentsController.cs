@@ -39,12 +39,22 @@ public static class ArgumentsController
 
 		var respectOrder = controllerAttribute.RespectOrder;
 		var autoHelpArgument = controllerAttribute.AutoHelpArgument;
+		var hasHelp = args.Any(a => a.Trim().Equals("-h") || a.Trim().Equals("--help"));
 		var separator = controllerAttribute.Separator;
 		var arguments = type.GetArguments();
 
-		// args = "-v" "--help" "-o=caminho_path"
 		if (respectOrder)
-			ParseWithOrder(result, arguments, [.. args], separator);
+		{
+			var argHelper = ParseWithOrder(result, arguments, [.. args], separator);
+
+			if (!autoHelpArgument || !hasHelp)
+				return result;
+
+			if (argHelper != null)
+				Console.WriteLine(argHelper.ToString());
+			else
+				arguments.ForEach(Console.WriteLine);
+		}
 		else
 			throw new ArgumentException($"Parsing arguments without order is not implemented yet.");
 
@@ -54,7 +64,7 @@ public static class ArgumentsController
 	/// <summary>
 	/// Executes static methods specified by the <see cref="ExecuteAttribute"/> applied to properties of the given object.
 	/// The method receives the current value of the property, processes it, and optionally assigns the result back to the property.
-	/// Results of the executed methods are returned as an enumerable.
+	/// They are executed returned as an enumerable.
 	/// </summary>
 	/// <typeparam name="T">The type of the object containing the decorated properties.</typeparam>
 	/// <param name="obj">The object whose properties are processed.</param>
@@ -75,8 +85,13 @@ public static class ArgumentsController
 			var methodName = executorAttrib.MethodName;
 
 			// Retrieve the static method info
-			var method = classType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public)
-				?? throw new InvalidOperationException($"The method '{methodName}' was not found in the class '{classType.FullName}'.");
+			var method = classType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public);
+
+			if (method == null)
+			{
+				LaunchError($"The method '{methodName}' was not found in the class '{classType.FullName}'.", true);
+				yield break;
+			}
 
 			var currentValue = prop.GetValue(obj);
 			var methodParameters = method.GetParameters();
@@ -96,8 +111,9 @@ public static class ArgumentsController
 			else
 			{
 				// Throw an exception if the method signature is invalid
-				throw new InvalidOperationException(
-					$"The method '{methodName}' in class '{classType.FullName}' must either have no parameters or a single parameter of type '{prop.PropertyType.Name}'.");
+				LaunchError(@$"The method '{methodName}' in class '{classType.FullName}' must either have no parameters 
+					or a single parameter of type '{prop.PropertyType}'.", true);
+				yield break;
 			}
 
 			// Optionally assign the result back to the property if allowed
@@ -112,8 +128,19 @@ public static class ArgumentsController
 		}
 	}
 
-	private static void ParseWithOrder<T>(T result, List<Argument> arguments, List<string> args, char separator) where T : new()
+	private static Argument? ParseWithOrder<T>(T result, List<Argument> arguments, List<string> args, char separator, Argument? lastArgument = null) where T : new()
 	{
+		Argument? helper = null;
+
+		foreach (var arg in args)
+		{
+			if (!arguments.Where(a => arg.ArgumentNameEquals(a.Attribute.ShortName, a.Attribute.LongName)).Any())
+			{
+				LaunchError($"Provided argument '{arg}' does not exist.");
+				return null;
+			}
+		}
+
 		foreach (var argument in arguments)
 		{
 			if (args.Count == 0)
@@ -121,6 +148,16 @@ public static class ArgumentsController
 				if (argument.Attribute.Required)
 					LaunchError($"Required argument '{argument.GetName()}' is missing.");
 
+				continue;
+			}
+
+			if (args[0] == "-h" || args[0] == "--help")
+			{
+				if (argument.Parent == null)
+					helper = lastArgument;
+				else
+					helper = argument.Parent;
+				args.RemoveAt(0);
 				continue;
 			}
 
@@ -147,12 +184,16 @@ public static class ArgumentsController
 				catch (MissingMethodException)
 				{
 					LaunchError($"Public constructor on type '{argument.PropertyInfo.PropertyType.FullName}' not found!");
-					return;
+					return helper;
 				}
 
 				args.RemoveAt(0);
 				argument.PropertyInfo.SetValue(result, innerResult);
-				ParseWithOrder(innerResult, argument.Children, args, separator);
+				var subParseResult = ParseWithOrder(innerResult, argument.Children, args, separator, argument);
+
+				if (subParseResult != null)
+					helper = subParseResult;
+
 				continue;
 			}
 
@@ -170,16 +211,16 @@ public static class ArgumentsController
 				else
 				{
 					LaunchError($"No value found for the provided argument '{currentArg}'.");
-					return;
+					return helper;
 				}
 			}
 
 			var parts = currentArg.Split(separator, 2, StringSplitOptions.TrimEntries);
 
-			if (parts.Length != 2)
+			if (parts.Length != 2 && argument.Attribute.Required)
 			{
-				LaunchError($"Argument '{currentArg}' needs a value.");
-				return;
+				LaunchError($"Argument '{argument.GetName()}' is required.");
+				continue;
 			}
 
 			// Ex: parts = ["-o", "test"]
@@ -187,10 +228,7 @@ public static class ArgumentsController
 			if (!parts[0].ArgumentNameEquals(shortName, longName))
 			{
 				if (argument.Attribute.Required)
-				{
-					LaunchError($"Provided argument '{currentArg}' does not match the required order, see --help for more information.");
-					return;
-				}
+					LaunchError($"Provided argument '{currentArg}' does not match the required order.");
 
 				continue;
 			}
@@ -209,12 +247,13 @@ public static class ArgumentsController
 
 				var errorMessage = $"Argument {argument.GetName()} requires type '{argument.PropertyInfo.PropertyType.Name}', received: '{value}'.";
 				LaunchError(errorMessage);
-				return;
+				return helper;
 			}
 
 			argument.PropertyInfo.SetValue(result, convertedValue);
 			args.RemoveAt(0);
 		}
+		return helper;
 	}
 
 	private static bool ArgumentNameEquals(this string argv, string? shortName, string? longName)
@@ -223,14 +262,18 @@ public static class ArgumentsController
 			   argv.Equals(longName ?? "", StringComparison.CurrentCultureIgnoreCase);
 	}
 
-	private static void LaunchError(string message)
+	private static void LaunchError(string message, bool operationEx = false)
 	{
 		if (RedirectErrorToConsole)
 		{
 			Console.ForegroundColor = ConsoleColor.Red;
 			Console.Error.WriteLine(message);
 			Console.ResetColor();
+			return;
 		}
+
+		if (operationEx)
+			throw new InvalidOperationException(message);
 		else
 			throw new ArgumentException(message);
 	}

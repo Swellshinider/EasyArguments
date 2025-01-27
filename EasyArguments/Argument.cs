@@ -25,26 +25,30 @@ internal class Argument
 	internal ArgumentAttribute Attribute { get; }
 	internal List<Argument> Children { get; }
 
-	private string ToString(string parentArgument, string indentation)
+	private string ToString(string indentation)
 	{
 		var builder = new StringBuilder();
-		var names = string.IsNullOrEmpty(parentArgument) ? Attribute.LongName : $"{Attribute.ShortName}|{Attribute.LongName}";
-		var prefix = $"{(string.IsNullOrEmpty(parentArgument) ? "\n" : "")}{indentation}{parentArgument}{names}";
+		var prefix = $"{indentation}{GetName()}";
 		var suffix = $"{Attribute.HelpMessage} {(Attribute.Required ? "(Required)" : "")}";
-		builder.AppendLine($"{prefix.PadRight(35)}{suffix}");
+		builder.Append($"{prefix.PadRight(35)}{suffix}\n");
 
 		indentation += "    ";
 		foreach (var child in Children)
-			builder.Append(child.ToString($"{Attribute.LongName!} ", indentation));
+			builder.Append(child.ToString(indentation));
 
 		return builder.ToString();
 	}
 
-	public string GetName()
+	public string GetName(bool ignoreReq = false)
 	{
 		var builder = new StringBuilder();
+		var required = Attribute.Required;
+		
 		if (Parent != null)
-			builder.Append($"{Parent.GetName()} ");
+			builder.Append($"{Parent.GetName(true)} ");
+		
+		if (!required && !ignoreReq)
+			builder.Append('[');
 		
 		if (Attribute.ShortName != null)
 			builder.Append($"{Attribute.ShortName}|");
@@ -52,8 +56,11 @@ internal class Argument
 		if (Attribute.LongName != null)
 			builder.Append($"{Attribute.LongName}");
 
+		if (!required && !ignoreReq)
+			builder.Append(']');
+			
 		return builder.ToString();
 	}
 
-	public override string ToString() => ToString("", "");
+	public override string ToString() => ToString("");
 }
