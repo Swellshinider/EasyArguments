@@ -2,7 +2,6 @@ using EasyArguments.Attributes;
 
 namespace EasyArguments.Sample;
 
-[ArgumentsController]
 public class StartArguments
 {
 	[Argument("-u", "--url", "Url", Required = true)]

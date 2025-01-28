@@ -1,319 +1,243 @@
 ﻿using EasyArguments.Attributes;
 using EasyArguments.Exceptions;
+using EasyArguments.Helper;
 using System.Reflection;
+using System.Text;
 
 namespace EasyArguments;
 
 /// <summary>
-/// Provides utilities for parsing command-line arguments into strongly-typed objects.
+/// A re-usable, instantiable class that can parse command-line arguments into type <typeparamref name="T"/>.
 /// </summary>
-public static class ArgumentsController
+/// <typeparam name="T">A class annotated with <see cref="ArgumentsControllerAttribute"/>.</typeparam>
+public class ArgumentsController<T> where T : new()
 {
-	/// <summary>
-	/// Gets or sets a value indicating whether errors should be redirected to the console.
-	/// </summary>
-	public static bool RedirectErrorToConsole { get; set; } = false;
+	private readonly Type _rootType;
+	private readonly ArgumentsControllerAttribute _controllerAttribute;
+	private List<PropertyBinding>? _rootBindings;
 
 	/// <summary>
-	/// Parses the specified command-line arguments into an instance of the given type.
+	/// Create instance of <see cref="ArgumentsController{T}"/>
 	/// </summary>
-	/// <typeparam name="T">The type into which arguments should be parsed. Must have a parameterless constructor.</typeparam>
-	/// <param name="args">The collection of command-line arguments.</param>
-	/// <returns>An instance of <typeparamref name="T"/> populated with the parsed arguments.</returns>
-	/// <exception cref="ArgumentNullException">Thrown when <paramref name="args"/> is null.</exception>
-	/// <exception cref="MissingArgumentsControllerAttributeException">Thrown when the target type does not have the required <see cref="ArgumentsControllerAttribute"/>.</exception>
-	/// <exception cref="ArgumentException">Thrown when parsing fails or required arguments are missing.</exception>
-	public static T Parse<T>(IEnumerable<string> args) where T : new()
+	/// <exception cref="MissingControllerException">
+	/// The exception that is thrown when a class does not have the required <see cref="ArgumentsControllerAttribute"/> attribute.
+	/// </exception>
+	public ArgumentsController()
 	{
-		ArgumentNullException.ThrowIfNull(args, nameof(args));
-
-		var result = new T();
-		var type = typeof(T);
-
-		// Fetch controller-level attributes
-		var controllerAttribute = type.GetCustomAttribute<ArgumentsControllerAttribute>()
-			?? throw new MissingArgumentsControllerAttributeException(type);
-
-		if (!args.Any())
-			return result;
-
-		var respectOrder = controllerAttribute.RespectOrder;
-		var autoHelpArgument = controllerAttribute.AutoHelpArgument;
-		var hasHelp = args.Any(a => a.Trim().Equals("-h") || a.Trim().Equals("--help"));
-		var separator = controllerAttribute.Separator;
-		var arguments = type.GetArguments();
-
-		if (respectOrder)
-		{
-			var argHelper = ParseWithOrder(result, arguments, [.. args], separator);
-
-			if (!autoHelpArgument || !hasHelp)
-				return result;
-
-			if (argHelper != null)
-				Console.WriteLine(argHelper.ToString());
-			else
-				arguments.ForEach(Console.WriteLine);
-		}
-		else
-			throw new ArgumentException($"Parsing arguments without order is not implemented yet.");
-
-		return result;
+		_rootType = typeof(T);
+		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingControllerException(_rootType);
 	}
 
+	private List<PropertyBinding> RootBindings
+		=> _rootBindings ??= [.. ExtractProperties(_rootType)];
+
 	/// <summary>
-	/// Executes static methods specified by the <see cref="ExecuteAttribute"/> applied to properties of the given object.
-	/// The method receives the current value of the property, processes it, and optionally assigns the result back to the property.
-	/// They are executed returned as an enumerable.
+	/// Parses the given command-line arguments into a new instance of <typeparamref name="T"/>.
 	/// </summary>
-	/// <typeparam name="T">The type of the object containing the decorated properties.</typeparam>
-	/// <param name="obj">The object whose properties are processed.</param>
-	/// <returns>An enumerable of results from the executed methods.</returns>
-	public static IEnumerable<object?> Execute<T>(T obj)
+	/// <param name="args">The raw command-line arguments.</param>
+	/// <returns>A new instance of <typeparamref name="T"/> with properties populated from <paramref name="args"/>.</returns>
+	public T Parse(string[] args)
 	{
-		var type = typeof(T);
-		var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+		var instance = new T();
 
-		foreach (var prop in properties)
-		{
-			var executorAttrib = prop.GetCustomAttribute<ExecuteAttribute>();
+		int i = 0;
+		InitializeBooleans(instance, RootBindings);
+		_ = ParseObject(instance, RootBindings, args, ref i);
 
-			if (executorAttrib == null)
-				continue;
-
-			var classType = executorAttrib.ClassType;
-			var methodName = executorAttrib.MethodName;
-
-			// Retrieve the static method info
-			var method = classType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public);
-
-			if (method == null)
-			{
-				LaunchError($"The method '{methodName}' was not found in the class '{classType.FullName}'.", true);
-				yield break;
-			}
-
-			var currentValue = prop.GetValue(obj);
-			var methodParameters = method.GetParameters();
-			object? executionResult;
-
-			// Validate the method signature
-			if (methodParameters.Length == 0)
-			{
-				// Invoke method with no parameters
-				executionResult = method.Invoke(null, null);
-			}
-			else if (methodParameters.Length == 1 && methodParameters[0].ParameterType.IsAssignableFrom(prop.PropertyType))
-			{
-				// Invoke method with the current property value as the parameter
-				executionResult = method.Invoke(null, [currentValue]);
-			}
-			else
-			{
-				// Throw an exception if the method signature is invalid
-				LaunchError(@$"The method '{methodName}' in class '{classType.FullName}' must either have no parameters 
-					or a single parameter of type '{prop.PropertyType}'.", true);
-				yield break;
-			}
-
-			// Optionally assign the result back to the property if allowed
-			if (executorAttrib.AssignResultToProperty &&
-				prop.PropertyType.IsAssignableFrom(method.ReturnType) &&
-				prop.CanWrite)
-			{
-				prop.SetValue(obj, executionResult);
-			}
-
-			yield return executionResult;
-		}
+		return instance;
 	}
-
-	private static Argument? ParseWithOrder<T>(T result, List<Argument> arguments, List<string> args, char separator, Argument? lastArgument = null) where T : new()
+	
+	private static void InitializeBooleans(object target, List<PropertyBinding> propertyBindings) 
 	{
-		Argument? helper = null;
-
-		foreach (var arg in args)
+		foreach (var binding in propertyBindings)
 		{
-			if (!arguments.Where(a => arg.ArgumentNameEquals(a.Attribute.ShortName, a.Attribute.LongName)).Any())
+			var propType = binding.Property.PropertyType;
+			
+			if (propType.IsBoolean())
 			{
-				LaunchError($"Provided argument '{arg}' does not exist.");
-				return null;
-			}
-		}
+				// If InvertBoolean is true, default to true; otherwise false.
+				var defaultValue = binding.ArgumentAttr.InvertBoolean;
 
-		foreach (var argument in arguments)
-		{
-			if (args.Count == 0)
-			{
-				if (argument.Attribute.Required)
-					LaunchError($"Required argument '{argument.GetName()}' is missing.");
-
-				continue;
-			}
-
-			if (args[0] == "-h" || args[0] == "--help")
-			{
-				if (argument.Parent == null)
-					helper = lastArgument;
+				if (propType == typeof(bool?))
+					binding.Property.SetValue(target, (bool?)defaultValue);
 				else
-					helper = argument.Parent;
-				args.RemoveAt(0);
-				continue;
+					binding.Property.SetValue(target, defaultValue);
 			}
-
-			var currentArg = args[0];
-			var shortName = argument.Attribute.ShortName;
-			var longName = argument.Attribute.LongName;
-
-			if (argument.PropertyInfo.PropertyType.IsClass &&
-				argument.PropertyInfo.PropertyType != typeof(string))
+			
+			if (binding.Children.Count > 0) 
 			{
-				if (!currentArg.ArgumentNameEquals(shortName, longName))
-				{
-					if (argument.Attribute.Required)
-						LaunchError($"Required argument '{argument.GetName()}' is missing.");
-
-					continue;
-				}
-
-				object? innerResult;
-				try
-				{
-					innerResult = argument.PropertyInfo.PropertyType.Assembly.CreateInstance(argument.PropertyInfo.PropertyType.FullName!);
-				}
-				catch (MissingMethodException)
-				{
-					LaunchError($"Public constructor on type '{argument.PropertyInfo.PropertyType.FullName}' not found!");
-					return helper;
-				}
-
-				args.RemoveAt(0);
-				argument.PropertyInfo.SetValue(result, innerResult);
-				var subParseResult = ParseWithOrder(innerResult, argument.Children, args, separator, argument);
-
-				if (subParseResult != null)
-					helper = subParseResult;
-
-				continue;
+				var subInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
+				binding.Property.SetValue(target, subInstance);
+				InitializeBooleans(subInstance, binding.Children);
 			}
-
-			// The currentArg fits perfectly with the name, so it's a boolean
-			// Otherwise no value was found to the provided argument
-			if (currentArg.ArgumentNameEquals(shortName, longName))
-			{
-				if (argument.PropertyInfo.PropertyType == typeof(bool) ||
-					argument.PropertyInfo.PropertyType == typeof(bool?))
-				{
-					argument.PropertyInfo.SetValue(result, !argument.Attribute.InvertBoolean);
-					args.RemoveAt(0);
-					continue;
-				}
-				else
-				{
-					LaunchError($"No value found for the provided argument '{currentArg}'.");
-					return helper;
-				}
-			}
-
-			var parts = currentArg.Split(separator, 2, StringSplitOptions.TrimEntries);
-
-			if (parts.Length != 2 && argument.Attribute.Required)
-			{
-				LaunchError($"Argument '{argument.GetName()}' is required.");
-				continue;
-			}
-
-			// Ex: parts = ["-o", "test"]
-			// If "-o" does not match the current argument, but the argument is required, throw error
-			if (!parts[0].ArgumentNameEquals(shortName, longName))
-			{
-				if (argument.Attribute.Required)
-					LaunchError($"Provided argument '{currentArg}' does not match the required order.");
-
-				continue;
-			}
-
-			var value = parts[1];
-			object? convertedValue;
-
-			try
-			{
-				convertedValue = Convert.ChangeType(value, argument.PropertyInfo.PropertyType);
-			}
-			catch (FormatException)
-			{
-				if (!argument.Attribute.Required)
-					continue;
-
-				var errorMessage = $"Argument {argument.GetName()} requires type '{argument.PropertyInfo.PropertyType.Name}', received: '{value}'.";
-				LaunchError(errorMessage);
-				return helper;
-			}
-
-			argument.PropertyInfo.SetValue(result, convertedValue);
-			args.RemoveAt(0);
 		}
-		return helper;
 	}
 
-	private static bool ArgumentNameEquals(this string argv, string? shortName, string? longName)
+	/// <summary>
+	/// Recursively parses command-line arguments for the current "level" into <paramref name="target"/>.
+	/// It advances <paramref name="index"/> as it consumes arguments.
+	/// </summary>
+	private bool ParseObject(object target, List<PropertyBinding> propertyBindings, string[] args, ref int index)
 	{
-		return argv.Equals(shortName ?? "", StringComparison.CurrentCultureIgnoreCase) ||
-			   argv.Equals(longName ?? "", StringComparison.CurrentCultureIgnoreCase);
-	}
-
-	private static void LaunchError(string message, bool operationEx = false)
-	{
-		if (RedirectErrorToConsole)
+		while (index < args.Length)
 		{
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.Error.WriteLine(message);
-			Console.ResetColor();
-			return;
+			var currentArg = args[index];
+
+			// Check if user wants help at this level
+			if (currentArg == "-h" || currentArg == "--help")
+			{
+				Console.WriteLine(GetUsage(propertyBindings));
+				return true;
+			}
+
+			// Find a matching property in this level
+			var binding = propertyBindings.FirstOrDefault(pb => pb.Matches(currentArg))
+				?? throw new ArgumentException($"Unknown argument '{currentArg}'.{(_controllerAttribute.AutoHelpArgument ? " Please use -h or --help for usage information." : "")}");
+
+			var isBool = binding.Property.PropertyType.IsBoolean();
+
+			// If the arg includes an '=' for inline values, e.g. --url=http://...
+			string? valuePart = null;
+			var eqIdx = currentArg.IndexOf(_controllerAttribute.Separator);
+
+			if (eqIdx >= 0)
+				valuePart = currentArg[(eqIdx + 1)..];
+
+			// Move index forward since we recognized this argument
+			index++;
+
+			if (binding.Children.Count != 0)
+			{
+				// Create the sub-instance
+				var subInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
+				binding.Property.SetValue(target, subInstance);
+
+				// Recurse
+				bool helpPrinted = ParseObject(subInstance, binding.Children, args, ref index);
+
+				if (helpPrinted)
+					return true;
+
+				continue;
+			}
+
+			if (!isBool && valuePart == null && index < args.Length)
+			{
+				var nextArg = args[index];
+				if (!nextArg.StartsWith('-'))
+				{
+					valuePart = nextArg;
+					index++;
+				}
+			}
+
+			// Convert and set
+			object? convertedVal = ConvertValue(binding, valuePart);
+			binding.Property.SetValue(target, convertedVal);
 		}
 
-		if (operationEx)
-			throw new InvalidOperationException(message);
-		else
-			throw new ArgumentException(message);
+		return false;
 	}
 
-	private static List<Argument> GetArguments(this Type type, Argument? parent = null)
+	/// <summary>
+	/// Builds a usage string for the current object.
+	/// </summary>
+	public string GetUsageText() => GetUsage(RootBindings);
+
+	private string GetUsage(List<PropertyBinding> propertyBindings)
 	{
-		var arguments = new List<Argument>();
-		_ = type.GetCustomAttribute<ArgumentsControllerAttribute>()
-			?? throw new MissingArgumentsControllerAttributeException(type);
+		var sb = new StringBuilder();
+		sb.AppendLine("Usage: \n");
 
-		var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+		// For each property at this level
+		foreach (var pb in propertyBindings)
+			sb.AppendLine(pb.Usage());
 
-		foreach (var prop in properties)
+		if (_controllerAttribute.AutoHelpArgument)
+			sb.AppendLine($"{"-h, --help".PadRight(PropertyBinding.PAD_SIZE)}Show this help message.\n");
+
+		return sb.ToString();
+	}
+
+	private static IEnumerable<PropertyBinding> ExtractProperties(Type targetType, PropertyBinding? parent = null)
+	{
+		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
 		{
-			var argumentAttrib = prop.GetCustomAttribute<ArgumentAttribute>();
+			var argAttr = prop.GetCustomAttribute<ArgumentAttribute>();
 
-			if (argumentAttrib == null)
+			if (argAttr == null)
 				continue;
 
+			// If both ShortName and LongName are null, default to lowercase property name with "--" prefix.
+			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
+				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
+
+			var propBind = new PropertyBinding(prop, argAttr, parent);
+
+			// If this is a class and not string, we consider it as nested arguments
 			if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
+				propBind.Children.AddRange(ExtractProperties(propBind.Property.PropertyType, propBind));
+
+			yield return propBind;
+		}
+	}
+
+	/// <summary>
+	/// Converts the given <paramref name="valuePart"/> into the correct type for <paramref name="binding"/>.
+	/// </summary>
+	private static object? ConvertValue(PropertyBinding binding, string? valuePart)
+	{
+		var propType = binding.Property.PropertyType;
+		var argAttr = binding.ArgumentAttr;
+
+		// If property is bool or bool?, no value means just set it to "true" or "false" if InvertBoolean is set.
+		if (propType.IsBoolean())
+		{
+			bool boolValue;
+			if (string.IsNullOrWhiteSpace(valuePart))
 			{
-				var commandArgument = new Argument(parent, prop, argumentAttrib);
-
-				if (parent != null)
-					parent.Children.Add(commandArgument);
-				else
-					arguments.Add(commandArgument);
-
-				arguments.AddRange(prop.PropertyType.GetArguments(commandArgument));
-				continue;
+				// No explicit value means we toggle based on InvertBoolean
+				boolValue = !argAttr.InvertBoolean;
+			}
+			else
+			{
+				// parse the explicit boolean string (true/false/1/0/yes/no, etc.)
+				boolValue = valuePart.ToBoolean();
+				if (argAttr.InvertBoolean)
+				{
+					boolValue = !boolValue;
+				}
 			}
 
-			var argument = new Argument(parent, prop, argumentAttrib);
-
-			if (parent != null)
-				parent.Children.Add(argument);
+			// If property is bool? (nullable), box the bool into bool? 
+			if (propType == typeof(bool?))
+				return (bool?)boolValue;
 			else
-				arguments.Add(argument);
+				return boolValue;
 		}
 
-		return arguments;
+		// If it’s a string? property, just set it directly:
+		if (propType == typeof(string))
+		{
+			return valuePart;
+		}
+
+		// If no value was provided but it's not a boolean -> might be an error
+		if (string.IsNullOrEmpty(valuePart))
+		{
+			return null; // Or throw an exception if required
+		}
+
+		// Attempt to convert to other known types (int, float, enum, etc.) 
+		// For simplicity, we'll just let Convert.ChangeType handle primitives.
+		try
+		{
+			return Convert.ChangeType(valuePart, Nullable.GetUnderlyingType(propType) ?? propType);
+		}
+		catch (Exception ex)
+		{
+			throw new ArgumentException($"Failed to convert value '{valuePart}' to type {propType.Name}: {ex.Message}", ex);
+		}
 	}
 }

@@ -6,8 +6,9 @@ public static class Program
 	
 	public static void Main()
 	{
-		ArgumentsController.RedirectErrorToConsole = true;
-
+		var argumentController = new ArgumentsController<ArgumentsSample>();
+		Console.WriteLine(argumentController.GetUsageText());
+		
 		while (IsRunning)
 		{
 			Console.ForegroundColor = ConsoleColor.Cyan;
@@ -16,8 +17,22 @@ public static class Program
 			Console.ResetColor();
 
 			var args = input.Split(' ', StringSplitOptions.TrimEntries);
-			var arguments = ArgumentsController.Parse<ArgumentsSample>(args);
-			_ = ArgumentsController.Execute(arguments).ToList();
+			try 
+			{
+				var arguments = argumentController.Parse(args);
+				
+				Console.WriteLine(arguments.DisplayVersion);
+				Console.WriteLine(arguments.Stop);
+				Console.WriteLine(arguments.StartCommand?.Url);
+				Console.WriteLine(arguments.StartCommand?.Output);
+				
+			}
+			catch (Exception e)
+			{
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine(e.Message);
+				Console.ResetColor();
+			}
 		}
 	}
 }
