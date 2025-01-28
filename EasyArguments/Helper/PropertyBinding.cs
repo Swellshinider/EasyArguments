@@ -7,10 +7,16 @@ namespace EasyArguments.Helper;
 /// <summary>
 /// Small helper class to tie together a property and its <see cref="ArgumentAttribute"/>.
 /// </summary>
-internal class PropertyBinding
+public class PropertyBinding
 {
 	internal static readonly int PAD_SIZE = 50;
 	
+	/// <summary>
+	/// Initializes a new instance of the <see cref="PropertyBinding"/> class.
+	/// </summary>
+	/// <param name="property">The property to bind.</param>
+	/// <param name="argumentAttr">The argument attribute associated with the property.</param>
+	/// <param name="parent">The parent property binding, if any.</param>
 	public PropertyBinding(PropertyInfo property, ArgumentAttribute argumentAttr, PropertyBinding? parent = null)
 	{
 		Property = property;
@@ -19,9 +25,24 @@ internal class PropertyBinding
 		Children = [];
 	}
 
+	/// <summary>
+	/// Gets the property being bound.
+	/// </summary>
 	public PropertyInfo Property { get; }
+
+	/// <summary>
+	/// Gets the argument attribute associated with the property.
+	/// </summary>
 	public ArgumentAttribute ArgumentAttr { get; }
+
+	/// <summary>
+	/// Gets the parent property binding, if any.
+	/// </summary>
 	public PropertyBinding? Parent { get; }
+
+	/// <summary>
+	/// Gets the list of child property bindings.
+	/// </summary>
 	public List<PropertyBinding> Children { get; }
 
 	/// <summary>
