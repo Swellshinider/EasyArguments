@@ -9,14 +9,6 @@ public sealed class ArgumentsControllerAttribute : Attribute
 	private char _separator = '=';
 	
 	/// <summary>
-	/// Gets or sets a value indicating whether the order of arguments should be respected during parsing.
-	/// </summary>
-	/// <remarks>
-	/// When set to <c>true</c>, arguments must appear in the specified order. Defaults to <c>true</c>.
-	/// </remarks>
-	public bool RespectOrder { get; set; } = true;
-	
-	/// <summary>
 	/// Gets or sets a value indicating whether an automatic help argument should be included.
 	/// </summary>
 	/// <remarks>
