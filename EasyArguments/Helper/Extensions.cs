@@ -1,6 +1,9 @@
 namespace EasyArguments.Helper;
 
-internal static class Extensions
+/// <summary>
+/// Provides extension methods for common type conversions and checks.
+/// </summary>
+public static class Extensions
 {
 	/// <summary>
 	/// A simple extension method to parse known boolean strings (true/false/yes/no/1/0).
