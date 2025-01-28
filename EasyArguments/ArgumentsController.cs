@@ -64,13 +64,6 @@ public class ArgumentsController<T> where T : new()
 				else
 					binding.Property.SetValue(target, defaultValue);
 			}
-			
-			if (binding.Children.Count > 0) 
-			{
-				var subInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
-				binding.Property.SetValue(target, subInstance);
-				InitializeBooleans(subInstance, binding.Children);
-			}
 		}
 	}
 

@@ -2,37 +2,24 @@
 
 public static class Program
 {
-	public static bool IsRunning { get; set; } = true;
-	
-	public static void Main()
+	public static void Main(string[] args)
 	{
-		var argumentController = new ArgumentsController<ArgumentsSample>();
-		Console.WriteLine(argumentController.GetUsageText());
-		
-		while (IsRunning)
-		{
-			Console.ForegroundColor = ConsoleColor.Cyan;
-			Console.Write("> ");
-			var input = Console.ReadLine() ?? "";
-			Console.ResetColor();
+		// Instantiate a controller for your argument class
+		var controller = new ArgumentsController<MyArgs>();
 
-			var args = input.Split(' ', StringSplitOptions.TrimEntries);
-			try 
-			{
-				var arguments = argumentController.Parse(args);
-				
-				Console.WriteLine(arguments.DisplayVersion);
-				Console.WriteLine(arguments.Stop);
-				Console.WriteLine(arguments.StartCommand?.Url);
-				Console.WriteLine(arguments.StartCommand?.Output);
-				
-			}
-			catch (Exception e)
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				Console.WriteLine(e.Message);
-				Console.ResetColor();
-			}
+		// Parse the given args
+		var parsed = controller.Parse(args);
+
+		// Now you can use the strongly-typed properties:
+		Console.WriteLine($"Name: {parsed.Name}");
+		Console.WriteLine($"Verbose: {parsed.Verbose}");
+		Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
+
+		// If the user included "start" on the CLI, 
+		// then parsed.Start != null and has its own parsed values:
+		if (parsed.Start != null)
+		{
+			Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
 		}
 	}
 }
