@@ -2,10 +2,7 @@
 
 # EasyArguments
 
-[![NuGet](https://img.shields.io/nuget/v/EasyArguments.svg)](https://www.nuget.org/packages/EasyArguments/)
-
-[![Build](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml/badge.svg?branch=main&event=push)](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml)
-
+[![NuGet](https://img.shields.io/nuget/v/EasyArguments.svg)](https://www.nuget.org/packages/EasyArguments/) [![Build](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml/badge.svg?branch=main&event=push)](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml)
 
 EasyArguments is a lightweight .NET library that simplifies the process of parsing command-line arguments into strongly-typed objects. It provides attributes to define metadata for arguments and a controller to handle the parsing logic.
 
