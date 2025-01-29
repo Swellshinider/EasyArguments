@@ -9,7 +9,10 @@ namespace EasyArguments.Helper;
 /// </summary>
 public class PropertyBinding
 {
-	internal static readonly int PAD_SIZE = 50;
+	/// <summary>
+	/// The padding size used for formatting the usage string.
+	/// </summary>
+	public static readonly int PAD_SIZE = 50;
 	
 	/// <summary>
 	/// Initializes a new instance of the <see cref="PropertyBinding"/> class.

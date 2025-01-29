@@ -47,13 +47,13 @@ public class ArgumentsController<T> where T : new()
 
 		return instance;
 	}
-	
-	private static void InitializeBooleans(object target, List<PropertyBinding> propertyBindings) 
+
+	private static void InitializeBooleans(object target, List<PropertyBinding> propertyBindings)
 	{
 		foreach (var binding in propertyBindings)
 		{
 			var propType = binding.Property.PropertyType;
-			
+
 			if (propType.IsBoolean())
 			{
 				// If InvertBoolean is true, default to true; otherwise false.
@@ -177,31 +177,20 @@ public class ArgumentsController<T> where T : new()
 	}
 
 	/// <summary>
-	/// Converts the given <paramref name="valuePart"/> into the correct type for <paramref name="binding"/>.
+	/// Converts the given <paramref name="value"/> into the correct type for <paramref name="binding"/>.
 	/// </summary>
-	private static object? ConvertValue(PropertyBinding binding, string? valuePart)
+	private static object? ConvertValue(PropertyBinding binding, string? value)
 	{
 		var propType = binding.Property.PropertyType;
 		var argAttr = binding.ArgumentAttr;
 
-		// If property is bool or bool?, no value means just set it to "true" or "false" if InvertBoolean is set.
+		// If property is bool or bool?, no value means just set it to true and check if InvertBoolean is set.
 		if (propType.IsBoolean())
 		{
-			bool boolValue;
-			if (string.IsNullOrWhiteSpace(valuePart))
-			{
-				// No explicit value means we toggle based on InvertBoolean
-				boolValue = !argAttr.InvertBoolean;
-			}
-			else
-			{
-				// parse the explicit boolean string (true/false/1/0/yes/no, etc.)
-				boolValue = valuePart.ToBoolean();
-				if (argAttr.InvertBoolean)
-				{
-					boolValue = !boolValue;
-				}
-			}
+			var boolValue = string.IsNullOrEmpty(value) || value.ToBoolean();
+			
+			if (argAttr.InvertBoolean)
+				boolValue = !boolValue;
 
 			// If property is bool? (nullable), box the bool into bool? 
 			if (propType == typeof(bool?))
@@ -210,27 +199,23 @@ public class ArgumentsController<T> where T : new()
 				return boolValue;
 		}
 
-		// If it’s a string? property, just set it directly:
+		// If it’s a string property, just set it directly:
 		if (propType == typeof(string))
-		{
-			return valuePart;
-		}
+			return value;
 
 		// If no value was provided but it's not a boolean -> might be an error
-		if (string.IsNullOrEmpty(valuePart))
-		{
-			return null; // Or throw an exception if required
-		}
+		if (string.IsNullOrEmpty(value))
+			throw new ArgumentException($"{binding.GetName()} must receive a value");
 
 		// Attempt to convert to other known types (int, float, enum, etc.) 
 		// For simplicity, we'll just let Convert.ChangeType handle primitives.
 		try
 		{
-			return Convert.ChangeType(valuePart, Nullable.GetUnderlyingType(propType) ?? propType);
+			return Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
 		}
 		catch (Exception ex)
 		{
-			throw new ArgumentException($"Failed to convert value '{valuePart}' to type {propType.Name}: {ex.Message}", ex);
+			throw new ArgumentException($"Failed to convert value '{value}' to type {propType.Name}: {ex.Message}", ex);
 		}
 	}
 }
