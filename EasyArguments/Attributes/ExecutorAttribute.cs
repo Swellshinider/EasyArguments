@@ -9,15 +9,15 @@ namespace EasyArguments.Attributes;
 /// This attribute can be applied to properties to specify a static class and method to be executed.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
-public sealed class ExecutorAttributeAttribute : Attribute
+public sealed class ExecutorAttribute : Attribute
 {
 	/// <summary>
-	/// Initializes a new instance of the <see cref="ExecutorAttributeAttribute"/> class.
+	/// Initializes a new instance of the <see cref="ExecutorAttribute"/> class.
 	/// </summary>
 	/// <param name="staticClass">The static class containing the method.</param>
 	/// <param name="methodName">The name of the method to be executed.</param>
 	/// <exception cref="ArgumentException">Thrown when the provided type is not a static class or the method does not exist.</exception>
-	public ExecutorAttributeAttribute(Type staticClass, string methodName)
+	public ExecutorAttribute(Type staticClass, string methodName)
 	{
 		// Check if the provided type is a static class
 		if (!staticClass.IsAbstract || !staticClass.IsSealed || staticClass.IsGenericType)
