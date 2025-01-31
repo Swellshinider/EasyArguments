@@ -18,6 +18,10 @@ public class ArgumentsController<T> where T : new()
 
 	private int _position = 0;
 
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ArgumentsController{T}"/> class with the specified command-line arguments.
+	/// </summary>
+	/// <param name="args">The command-line arguments to parse.</param>
 	public ArgumentsController(string[] args)
 	{
 		_rootType = typeof(T);
@@ -37,6 +41,10 @@ public class ArgumentsController<T> where T : new()
 		}
 	}
 
+	/// <summary>
+	/// Parses the command-line arguments and returns an instance of type <typeparamref name="T"/>.
+	/// </summary>
+	/// <returns>An instance of type <typeparamref name="T"/> populated with the parsed arguments.</returns>
 	public T Parse()
 	{
 		var instance = new T();
@@ -46,6 +54,18 @@ public class ArgumentsController<T> where T : new()
 
 		return instance;
 	}
+
+	/// <summary>
+	/// Extracts the properties bound to arguments in the type <typeparamref name="T"/>.
+	/// </summary>
+	/// <returns>An enumerable of <see cref="PropertyBinding"/> representing the bound properties.</returns>
+	public IEnumerable<PropertyBinding> ExtractBoundProperties() => typeof(T).ExtractProperties();
+
+	/// <summary>
+	/// Generates the usage text for the command-line arguments.
+	/// </summary>
+	/// <returns>A string representing the usage text.</returns>
+	public string GetUsageText() => ExtractBoundProperties().GetUsage(_controllerAttribute.AutoHelpArgument);
 
 	private bool ParseObject(object argObject)
 	{
@@ -123,11 +143,6 @@ public class ArgumentsController<T> where T : new()
 		
 		return helpPrinted;
 	}
-
-	/// <summary>
-	/// Builds a usage string for the current object.
-	/// </summary>
-	public string GetUsageText() => typeof(T).ExtractProperties().GetUsage(_controllerAttribute.AutoHelpArgument);
 
 	private static object? ConvertValue(PropertyBinding binding, string? value)
 	{
