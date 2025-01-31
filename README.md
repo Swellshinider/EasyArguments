@@ -17,6 +17,7 @@ EasyArguments is a lightweight .NET library that simplifies the process of parsi
     - [Configuring the Controller](#configuring-the-controller)
     - [Defining Arguments](#defining-arguments)
     - [Parsing Arguments](#parsing-arguments)
+    - [Auto Executing Arguments](#auto-executing-arguments)
     - [Handling Errors](#handling-errors)
   - [Full Example](#full-example)
   - [Plans for the future](#plans-for-the-future)
@@ -114,6 +115,104 @@ static void Main(string[] args)
         Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
     }
 }
+```
+
+### Auto Executing Arguments
+
+You can configure arguments to be automatically executed when they are parsed. To do this, set `ExecuteWhenParsing = true` in the `ArgumentsController` attribute and use the `Executor` attribute on the property you want to auto-execute.
+
+```csharp
+[ArgumentsController(ExecuteWhenParsing = true)]
+public class MyArgs
+{
+    [Argument("-v", "--version", "Display version")]
+    [Executor(typeof(ExecuteClass), "DisplayVersion")]
+    public bool DisplayVersion { get; set; }
+}
+
+public static class ExecuteClass
+{
+    public static void DisplayVersion(bool display)
+    {
+        if (display)
+            Console.WriteLine("Version: 1.0");
+    }
+}
+```
+
+```csharp
+using EasyArguments;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            MyArgs parsed = controller.Parse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
+```
+
+OUTPUT:
+```bash
+Version: 1.0
+```
+
+```csharp
+[ArgumentsController(ExecuteWhenParsing = true)]
+public class MyArgs
+{
+	[Argument("-v", "--version", "Display version")]
+	[Executor(typeof(ExecuteClass), "DisplayVersion")]
+	public bool DisplayVersion { get; set; }
+}
+
+public static class ExecuteClass
+{
+    public static void DisplayVersion(bool display)
+    {
+        if (display)
+            Console.WriteLine("Version: 1.0")
+    }
+}
+
+```
+
+```csharp
+using EasyArguments;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            MyArguments parsed = controller.Parse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
+```
+OUTPUT:
+```bash
+Version: 1.0
 ```
 
 ### Handling Errors

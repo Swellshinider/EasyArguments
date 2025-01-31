@@ -14,16 +14,13 @@ public static class ExecuteClass
 {
 	public static bool VersionWasDisplayed { get; set; }
 
-	public static bool DisplayVersion(bool display)
+	public static void DisplayVersion(bool display)
 	{
 		VersionWasDisplayed = display;
 		
 		if (display)
 		{
-			// Display version here, Console.WriteLine()
-			return true;
+			// Console.WriteLine()
 		}
-
-		return false;
 	}
 }
