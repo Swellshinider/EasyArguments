@@ -19,8 +19,8 @@ public class PropertyBindingTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 
-		Assert.True(binding.Matches("-a"));
-		Assert.True(binding.Matches("-a=value"));
+		Assert.True(binding.Matches("-a", '='));
+		Assert.True(binding.Matches("-a=value", '='));
 	}
 
 	[Fact]

@@ -63,7 +63,7 @@ public class ArgumentsController<T> where T : new()
 				continue;
 			}
 			
-			if (argument.Matches(Current) && 
+			if (argument.Matches(Current, _controllerAttribute.Separator) && 
 				argument.Property.PropertyType.IsClass &&
 				argument.Property.PropertyType != typeof(string))
 			{
@@ -75,7 +75,7 @@ public class ArgumentsController<T> where T : new()
 				continue;
 			}
 			
-			if (argument.Matches(Current))
+			if (argument.Matches(Current, _controllerAttribute.Separator))
 			{
 				var argDetected = Current;
 				_position++;
@@ -83,10 +83,21 @@ public class ArgumentsController<T> where T : new()
 				// If next is null and is not a flag, throw error
 				if (Current == null)
 				{
+					// Contains separator, so its something like this: --arg=value
+					if (argDetected.Contains(_controllerAttribute.Separator))
+					{
+						var parts = argDetected.Split(_controllerAttribute.Separator, 2);
+						var arg = parts[0];
+						var value = parts[1];
+						var converted = ConvertValue(argument, value);
+						argument.Property.SetValue(argObject, converted);
+						continue;
+					}
+					
 					if (!argument.Property.PropertyType.IsBoolean())
 						throw new ArgumentException($"No value found for provided argument '{argDetected}'");
 					else
-						argument.Property.SetValue(argObject, "true");
+						argument.Property.SetValue(argObject, true);
 
 					continue;
 				}
@@ -101,7 +112,7 @@ public class ArgumentsController<T> where T : new()
 				}
 				
 				// If matches with an argument, then is missing a value
-				if (argument.Matches(Current))
+				if (argument.Matches(Current, _controllerAttribute.Separator))
 					throw new ArgumentException($"No value found for provided argument '{argDetected}'");
 					
 				
