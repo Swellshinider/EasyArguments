@@ -1,50 +1,10 @@
-using EasyArguments.Attributes;
 using EasyArguments.Exceptions;
+using EasyArguments.Tests.TestClasses;
 
 namespace EasyArguments.Tests;
 
 public class ArgumentsControllerTests
 {
-	private class TestArgumentsNoArgumentController
-	{
-		[Argument("-v", "--verbose", "Verbose output")]
-		public bool Verbose { get; set; }
-
-		[Argument(null, null, "Username")]
-		public string? User { get; set; }
-	}
-	
-	[ArgumentsController]
-	private class TestArguments
-	{
-		[Argument("-v", "--verbose", "Verbose output")]
-		public bool Verbose { get; set; }
-
-		[Argument(null, null, "Username")]
-		public string? User { get; set; }
-	}
-
-	[ArgumentsController(AutoHelpArgument = false)]
-	private class RequiredArguments
-	{
-		[Argument("-r", "--required", "Required arg", Required = true)]
-		public string? Required { get; set; }
-	}
-
-	[ArgumentsController]
-	private class ParentArgs
-	{
-		[Argument(null, "child", "Child arguments")]
-		public ChildArgs? Child { get; set; }
-	}
-
-	[ArgumentsController]
-	private class ChildArgs
-	{
-		[Argument("-c", "--child-flag", "Child flag")]
-		public bool ChildFlag { get; set; }
-	}
-	
 	[Fact]
 	public void Instantiate_ArgumentClassWithoutAttribute_ThrowsException()
 	{

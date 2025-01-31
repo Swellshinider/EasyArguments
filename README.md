@@ -17,6 +17,7 @@ EasyArguments is a lightweight .NET library that simplifies the process of parsi
     - [Configuring the Controller](#configuring-the-controller)
     - [Defining Arguments](#defining-arguments)
     - [Parsing Arguments](#parsing-arguments)
+    - [Auto Executing Arguments](#auto-executing-arguments)
     - [Handling Errors](#handling-errors)
   - [Full Example](#full-example)
   - [Plans for the future](#plans-for-the-future)
@@ -97,10 +98,10 @@ using EasyArguments;
 static void Main(string[] args)
 {
     // Instantiate a controller for your argument class
-    var controller = new ArgumentsController<MyArgs>();
+    var controller = new ArgumentsController<MyArgs>(args);
 
     // Parse the given args
-    var parsed = controller.Parse(args);
+    var parsed = controller.Parse();
 
     // Now you can use the strongly-typed properties:
     Console.WriteLine($"Name: {parsed.Name}");
@@ -116,6 +117,104 @@ static void Main(string[] args)
 }
 ```
 
+### Auto Executing Arguments
+
+You can configure arguments to be automatically executed when they are parsed. To do this, set `ExecuteWhenParsing = true` in the `ArgumentsController` attribute and use the `Executor` attribute on the property you want to auto-execute.
+
+```csharp
+[ArgumentsController(ExecuteWhenParsing = true)]
+public class MyArgs
+{
+    [Argument("-v", "--version", "Display version")]
+    [Executor(typeof(ExecuteClass), "DisplayVersion")]
+    public bool DisplayVersion { get; set; }
+}
+
+public static class ExecuteClass
+{
+    public static void DisplayVersion(bool display)
+    {
+        if (display)
+            Console.WriteLine("Version: 1.0");
+    }
+}
+```
+
+```csharp
+using EasyArguments;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            MyArgs parsed = controller.Parse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
+```
+
+OUTPUT:
+```bash
+Version: 1.0
+```
+
+```csharp
+[ArgumentsController(ExecuteWhenParsing = true)]
+public class MyArgs
+{
+	[Argument("-v", "--version", "Display version")]
+	[Executor(typeof(ExecuteClass), "DisplayVersion")]
+	public bool DisplayVersion { get; set; }
+}
+
+public static class ExecuteClass
+{
+    public static void DisplayVersion(bool display)
+    {
+        if (display)
+            Console.WriteLine("Version: 1.0")
+    }
+}
+
+```
+
+```csharp
+using EasyArguments;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            MyArguments parsed = controller.Parse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}
+```
+OUTPUT:
+```bash
+Version: 1.0
+```
+
 ### Handling Errors
 
 The `ArgumentsController` provides a mechanism to handle errors that are thrown as exceptions. You can simply print the error message to the console to get a nice result.
@@ -129,9 +228,11 @@ class Program
     {
         try
         {
-            
-            ArgumentsController.RedirectErrorToConsole = true; // Errors will be shown in the console
-            MyArguments parsedArgs = ArgumentsController.Parse<MyArguments>(args);
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            MyArguments parsed = controller.Parse();
         }
         catch (Exception ex)
         {
@@ -187,34 +288,35 @@ class Program
 {
     static void Main(string[] args)
     {
-        // Instantiate a controller for your argument class
-        var controller = new ArgumentsController<MyArgs>();
-
-        // Parse the given args
-        var parsed = controller.Parse(args);
-
-        // Now you can use the strongly-typed properties:
-        Console.WriteLine($"Name: {parsed.Name}");
-        Console.WriteLine($"Verbose: {parsed.Verbose}");
-        Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
-        
-        // If the user included "start" on the CLI, 
-        // then parsed.Start != null and has its own parsed values:
-        if (parsed.Start != null)
+        try
         {
-            Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
+            // Instantiate a controller for your argument class
+            var controller = new ArgumentsController<MyArgs>(args);
+
+            // Parse the given args
+            var parsed = controller.Parse();
+
+            // Now you can use the strongly-typed properties:
+            Console.WriteLine($"Name: {parsed.Name}");
+            Console.WriteLine($"Verbose: {parsed.Verbose}");
+            Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
+            
+            // If the user included "start" on the CLI, 
+            // then parsed.Start != null and has its own parsed values:
+            if (parsed.Start != null)
+            {
+                Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
         }
     }
 }
 ```
 
 ## Plans for the future
-
-- **ExecutorAttribute** (Issue #7)
-    I plan to introduce an attribute—tentatively named `[ExecutorAttribute]` that allows developers to associate a static method call with a particular argument. Once that argument is successfully parsed, the library will invoke the specified method. This can be used to trigger special actions without cluttering the main application logic (e.g., displaying a version number, stopping a service, etc.).
-
-- **Improved Parser with Tokenization** (Issue #8)
-    In order to support arguments that include spaces or special characters (e.g., `--path = "my folder with spaces")`, so I plan to implement a more sophisticated tokenization step before parsing. This will allow the library to correctly extract multi-word values, quoted strings, and potentially other advanced CLI patterns.
 
 - **Enhanced Help Customization** (Issue #9)
     While `EasyArguments` already generate automatic usage information, I want to give developers more control over the help text’s layout and content. Plans include support for: 
