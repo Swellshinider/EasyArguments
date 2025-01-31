@@ -48,16 +48,15 @@ public class ArgumentsControllerTests
 	[Fact]
 	public void Instantiate_ArgumentClassWithoutAttribute_ThrowsException()
 	{
-		Assert.Throws<MissingControllerException>(() => new ArgumentsController<TestArgumentsNoArgumentController>());
+		Assert.Throws<MissingControllerException>(() => new ArgumentsController<TestArgumentsNoArgumentController>([]));
 	}
 
 	[Fact]
 	public void Parse_BooleanFlag_SetsValue()
 	{
-		var controller = new ArgumentsController<TestArguments>();
-		var args = new[] { "-v" };
+		var controller = new ArgumentsController<TestArguments>(["-v"]);
 
-		var result = controller.Parse(args);
+		var result = controller.Parse();
 
 		Assert.True(result.Verbose);
 	}
@@ -65,39 +64,36 @@ public class ArgumentsControllerTests
 	[Fact]
 	public void Parse_InlineValue_SetsCorrectValue()
 	{
-		var controller = new ArgumentsController<TestArguments>();
-		var args = new[] { "--user=admin" };
-
-		var result = controller.Parse(args);
+		var controller = new ArgumentsController<TestArguments>(["--user=admin"]);
+		
+		var result = controller.Parse();
 
 		Assert.Equal("admin", result.User);
 	}
 
-	[Fact(Skip = "This test is skipped for now because it's not ready")]
-	public void Parse_MissingRequired_ThrowsException()
+	[Fact]
+    public void Parse_MissingRequired_ThrowsException()
 	{
-		var controller = new ArgumentsController<RequiredArguments>();
+		var controller = new ArgumentsController<RequiredArguments>([]);
 
-		Assert.Throws<ArgumentException>(() => controller.Parse([]));
+		Assert.Throws<ArgumentException>(() => controller.Parse());
 	}
 
 	[Fact]
 	public void Parse_HelpCommand_OutputsUsage()
 	{
-		var controller = new ArgumentsController<TestArguments>();
-		var args = new[] { "-h" };
-
-		var ex = Record.Exception(() => controller.Parse(args));
+		var controller = new ArgumentsController<TestArguments>(["-h"]);
+		
+		var ex = Record.Exception(() => controller.Parse());
 		Assert.Null(ex); // Should handle help without throwing
 	}
 
 	[Fact]
 	public void Parse_NestedArguments_HandlesCorrectly()
 	{
-		var controller = new ArgumentsController<ParentArgs>();
-		var args = new[] { "child", "-c" };
-
-		var result = controller.Parse(args);
+		var controller = new ArgumentsController<ParentArgs>(["child", "-c" ]);
+		
+		var result = controller.Parse();
 
 		Assert.True(result.Child!.ChildFlag);
 	}

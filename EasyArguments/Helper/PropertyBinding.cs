@@ -9,7 +9,10 @@ namespace EasyArguments.Helper;
 /// </summary>
 public class PropertyBinding
 {
-	internal static readonly int PAD_SIZE = 50;
+	/// <summary>
+	/// The padding size used for formatting the usage string.
+	/// </summary>
+	public static readonly int PAD_SIZE = 50;
 	
 	/// <summary>
 	/// Initializes a new instance of the <see cref="PropertyBinding"/> class.
@@ -49,10 +52,9 @@ public class PropertyBinding
 	/// Returns true if <paramref name="arg"/> matches either this property's
 	/// short name or long name (without considering any '=' or other characters).
 	/// </summary>
-	public bool Matches(string arg)
+	public bool Matches(string arg, char separator)
 	{
-		// We handle both "arg=" and separate usage. So let's strip out anything after an '='
-		var separatorIndex = arg.IndexOf('=');
+		var separatorIndex = arg.IndexOf(separator);
 		string justKey = separatorIndex >= 0 ? arg[..separatorIndex] : arg;
 
 		return
