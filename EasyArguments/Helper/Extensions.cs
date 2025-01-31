@@ -44,7 +44,7 @@ public static partial class Extensions
 		return tokens;
 	}
 	
-	internal static bool IsNestedArgument(this Type type) => type.IsNested && type.IsClass && type != typeof(string);
+	internal static bool IsNestedArgument(this Type type) => type.IsClass && type != typeof(string);
 	
 	internal static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
 	{
