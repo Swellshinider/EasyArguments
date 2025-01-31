@@ -13,172 +13,111 @@ namespace EasyArguments;
 public class ArgumentsController<T> where T : new()
 {
 	private readonly Type _rootType;
+	private readonly List<string> _tokens;
 	private readonly ArgumentsControllerAttribute _controllerAttribute;
-	private List<PropertyBinding>? _rootBindings;
 
-	/// <summary>
-	/// Create instance of <see cref="ArgumentsController{T}"/>
-	/// </summary>
-	/// <exception cref="MissingControllerException">
-	/// The exception that is thrown when a class does not have the required <see cref="ArgumentsControllerAttribute"/> attribute.
-	/// </exception>
-	public ArgumentsController()
+	private int _position = 0;
+
+	public ArgumentsController(string[] args)
 	{
 		_rootType = typeof(T);
+		_tokens = string.Join(' ', args).Tokenize();
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
 	}
 
-	private List<PropertyBinding> RootBindings
-		=> _rootBindings ??= [.. ExtractProperties(_rootType)];
+	private string? Current
+	{
+		get
+		{
+			if (_position >= _tokens.Count)
+				return null;
 
-	/// <summary>
-	/// Parses the given command-line arguments into a new instance of <typeparamref name="T"/>.
-	/// </summary>
-	/// <param name="args">The raw command-line arguments.</param>
-	/// <returns>A new instance of <typeparamref name="T"/> with properties populated from <paramref name="args"/>.</returns>
-	public T Parse(string[] args)
+			return _tokens[_position];
+		}
+	}
+
+	public T Parse()
 	{
 		var instance = new T();
+		_position = 0;
 
-		int i = 0;
-		InitializeBooleans(instance, RootBindings);
-		_ = ParseObject(instance, RootBindings, args, ref i);
+		_ = ParseObject(instance);
 
 		return instance;
 	}
 
-	private static void InitializeBooleans(object target, List<PropertyBinding> propertyBindings)
+	private bool ParseObject(object argObject)
 	{
-		foreach (var binding in propertyBindings)
+		var arguments = argObject.GetType().ExtractProperties();
+		var helpPrinted = false;
+
+		foreach (var argument in arguments)
 		{
-			var propType = binding.Property.PropertyType;
-
-			if (propType.IsBoolean())
+			// If there's no more args but the argument is required
+			if (Current == null)
 			{
-				// If InvertBoolean is true, default to true; otherwise false.
-				var defaultValue = binding.ArgumentAttr.InvertBoolean;
-
-				if (propType == typeof(bool?))
-					binding.Property.SetValue(target, (bool?)defaultValue);
-				else
-					binding.Property.SetValue(target, defaultValue);
-			}
-		}
-	}
-
-	/// <summary>
-	/// Recursively parses command-line arguments for the current "level" into <paramref name="target"/>.
-	/// It advances <paramref name="index"/> as it consumes arguments.
-	/// </summary>
-	private bool ParseObject(object target, List<PropertyBinding> propertyBindings, string[] args, ref int index)
-	{
-		while (index < args.Length)
-		{
-			var currentArg = args[index];
-
-			// Check if user wants help at this level
-			if (currentArg == "-h" || currentArg == "--help")
-			{
-				Console.WriteLine(GetUsage(propertyBindings));
-				return true;
-			}
-
-			// Find a matching property in this level
-			var binding = propertyBindings.FirstOrDefault(pb => pb.Matches(currentArg))
-				?? throw new ArgumentException($"Unknown argument '{currentArg}'.{(_controllerAttribute.AutoHelpArgument ? " Please use -h or --help for usage information." : "")}");
-
-			var isBool = binding.Property.PropertyType.IsBoolean();
-
-			// If the arg includes an '=' for inline values, e.g. --url=http://...
-			string? valuePart = null;
-			var eqIdx = currentArg.IndexOf(_controllerAttribute.Separator);
-
-			if (eqIdx >= 0)
-				valuePart = currentArg[(eqIdx + 1)..];
-
-			// Move index forward since we recognized this argument
-			index++;
-
-			if (binding.Children.Count != 0)
-			{
-				// Create the sub-instance
-				var subInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
-				binding.Property.SetValue(target, subInstance);
-
-				// Recurse
-				bool helpPrinted = ParseObject(subInstance, binding.Children, args, ref index);
-
-				if (helpPrinted)
-					return true;
+				if (argument.ArgumentAttr.Required)
+					throw new ArgumentException($"Argument '{argument.GetName()}' is required.");
 
 				continue;
 			}
-
-			if (!isBool && valuePart == null && index < args.Length)
+			
+			if (argument.Matches(Current) && 
+				argument.Property.PropertyType.IsClass &&
+				argument.Property.PropertyType != typeof(string))
 			{
-				var nextArg = args[index];
-				if (!nextArg.StartsWith('-'))
-				{
-					valuePart = nextArg;
-					index++;
-				}
+				var subInstance = Activator.CreateInstance(argument.Property.PropertyType)!;
+				argument.Property.SetValue(argObject, subInstance);
+
+				_position++;
+				helpPrinted = ParseObject(subInstance);
+				continue;
 			}
+			
+			if (argument.Matches(Current))
+			{
+				var argDetected = Current;
+				_position++;
 
-			// Convert and set
-			object? convertedVal = ConvertValue(binding, valuePart);
-			binding.Property.SetValue(target, convertedVal);
+				// If next is null and is not a flag, throw error
+				if (Current == null)
+				{
+					if (!argument.Property.PropertyType.IsBoolean())
+						throw new ArgumentException($"No value found for provided argument '{argDetected}'");
+					else
+						argument.Property.SetValue(argObject, "true");
+
+					continue;
+				}
+
+				// Check if is the separator
+				if (Current.Equals(_controllerAttribute.Separator))
+				{
+					_position++;
+					argument.Property.SetValue(argObject, ConvertValue(argument, Current));
+					_position++;
+					continue;
+				}
+				
+				// If matches with an argument, then is missing a value
+				if (argument.Matches(Current))
+					throw new ArgumentException($"No value found for provided argument '{argDetected}'");
+					
+				
+				var val = ConvertValue(argument, Current);
+				argument.Property.SetValue(argObject, val);
+			}
 		}
-
-		return false;
+		
+		return helpPrinted;
 	}
 
 	/// <summary>
 	/// Builds a usage string for the current object.
 	/// </summary>
-	public string GetUsageText() => GetUsage(RootBindings);
+	public string GetUsageText() => typeof(T).ExtractProperties().GetUsage(_controllerAttribute.AutoHelpArgument);
 
-	private string GetUsage(List<PropertyBinding> propertyBindings)
-	{
-		var sb = new StringBuilder();
-		sb.AppendLine("Usage: \n");
-
-		// For each property at this level
-		foreach (var pb in propertyBindings)
-			sb.AppendLine(pb.Usage());
-
-		if (_controllerAttribute.AutoHelpArgument)
-			sb.AppendLine($"{"-h, --help".PadRight(PropertyBinding.PAD_SIZE)}Show this help message.\n");
-
-		return sb.ToString();
-	}
-
-	private static IEnumerable<PropertyBinding> ExtractProperties(Type targetType, PropertyBinding? parent = null)
-	{
-		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
-		{
-			var argAttr = prop.GetCustomAttribute<ArgumentAttribute>();
-
-			if (argAttr == null)
-				continue;
-
-			// If both ShortName and LongName are null, default to lowercase property name with "--" prefix.
-			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
-				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
-
-			var propBind = new PropertyBinding(prop, argAttr, parent);
-
-			// If this is a class and not string, we consider it as nested arguments
-			if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
-				propBind.Children.AddRange(ExtractProperties(propBind.Property.PropertyType, propBind));
-
-			yield return propBind;
-		}
-	}
-
-	/// <summary>
-	/// Converts the given <paramref name="value"/> into the correct type for <paramref name="binding"/>.
-	/// </summary>
 	private static object? ConvertValue(PropertyBinding binding, string? value)
 	{
 		var propType = binding.Property.PropertyType;
@@ -188,7 +127,7 @@ public class ArgumentsController<T> where T : new()
 		if (propType.IsBoolean())
 		{
 			var boolValue = string.IsNullOrEmpty(value) || value.ToBoolean();
-			
+
 			if (argAttr.InvertBoolean)
 				boolValue = !boolValue;
 
