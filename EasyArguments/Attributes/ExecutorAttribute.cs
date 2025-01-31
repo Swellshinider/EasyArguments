@@ -22,12 +22,12 @@ public sealed class ExecutorAttributeAttribute : Attribute
 		// Check if the provided type is a static class
 		if (!staticClass.IsAbstract || !staticClass.IsSealed || staticClass.IsGenericType)
 			throw new ArgumentException("The provided type must be a static class.", nameof(staticClass));
-		
+
 		// Check if the provided string exists as a method in the class
 		var methodInfos = staticClass.GetMethods(BindingFlags.Static | BindingFlags.Public).Where(m => m.Name == methodName);
 		if (!methodInfos.Any())
 			throw new ArgumentException($"The method '{methodName}' does not exist in the static class '{staticClass.FullName}'.", nameof(methodName));
-		
+
 		StaticClass = staticClass;
 		MethodInfo = methodInfos.First();
 	}
@@ -36,9 +36,14 @@ public sealed class ExecutorAttributeAttribute : Attribute
 	/// Gets the static class containing the method.
 	/// </summary>
 	public Type StaticClass { get; }
-	
+
 	/// <summary>
 	/// Gets the <see cref=" System.Reflection.MethodInfo"/> to be executed.
 	/// </summary>
-	public MethodInfo? MethodInfo { get; }
+	public MethodInfo MethodInfo { get; }
+
+	/// <summary>
+	/// Gets or sets a value indicating whether the result of the method execution should be assigned to the property.
+	/// </summary>
+	public bool AssignResultToProperty { get; set; }
 }

@@ -44,23 +44,27 @@ public static partial class Extensions
 		return tokens;
 	}
 	
+	internal static bool IsNestedArgument(this Type type) => type.IsNested && type.IsClass && type != typeof(string);
+	
 	internal static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
 	{
 		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
 		{
+			// Get the attribute from the property
 			var argAttr = prop.GetCustomAttribute<ArgumentAttribute>();
 
+			// Ignore if does not contain the attribute
 			if (argAttr == null)
 				continue;
 
-			// If both ShortName and LongName are null, default to lowercase property name with "--" prefix.
+			// If both ShortName and LongName are null, set LongName to property name with "--" prefix.
 			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
 				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
 
 			var propBind = new PropertyBinding(prop, argAttr, parent);
 
 			// If this is a class and not string, we consider it as nested arguments
-			if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
+			if (prop.PropertyType.IsNestedArgument())
 				propBind.Children.AddRange(ExtractProperties(propBind.Property.PropertyType, propBind));
 
 			yield return propBind;

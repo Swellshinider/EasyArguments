@@ -17,6 +17,14 @@ public sealed class ArgumentsControllerAttribute : Attribute
 	public bool AutoHelpArgument { get; set; } = true;
 	
 	/// <summary>
+	/// Gets or sets a value indicating whether the command should be executed when parsing.
+	/// </summary>
+	/// <remarks>
+	/// Defaults to <c>false</c>.
+	/// </remarks>
+	public bool ExecuteWhenParsing { get; set; } = false;
+	
+	/// <summary>
 	/// Gets or sets the character used as a separator for parsing arguments.
 	/// </summary>
 	/// <remarks>
