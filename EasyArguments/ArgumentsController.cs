@@ -164,7 +164,7 @@ public class ArgumentsController<T> where T : new()
 		if (!_controllerAttribute.ExecuteWhenParsing || recurrence)
 			return;
 		
-		foreach (var execAttrib in binding.Property.GetCustomAttributes<ExecutorAttributeAttribute>())
+		foreach (var execAttrib in binding.Property.GetCustomAttributes<ExecutorAttribute>())
 		{
 			var currentValue = binding.Property.GetValue(target);
 			var resultValue = execAttrib.MethodInfo.Invoke(target, [currentValue]);
