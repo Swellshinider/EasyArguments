@@ -116,7 +116,15 @@ public class PropertyBinding
 		return sb.ToString();
 	}
 
-	internal void AssignValue(object target, object? value)
+	/// <summary>
+	/// Assigns a value to the property of the target object, converting the value if necessary.
+	/// </summary>
+	/// <param name="target">The object whose property value is to be set.</param>
+	/// <param name="value">The value to assign to the property. Can be null for boolean properties.</param>
+	/// <exception cref="ArgumentException">
+	/// Thrown if the property is not a boolean and the value is null, or if the value cannot be converted to the property type.
+	/// </exception>
+	public void AssignValue(object target, object? value)
 	{
 		var propType = Property.PropertyType;
 		var argAttr = ArgumentAttr;
@@ -172,7 +180,7 @@ public class PropertyBinding
 		}
 	}
 
-	internal void Execute(object target)
+	private void Execute(object target)
 	{
 		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())
 		{
