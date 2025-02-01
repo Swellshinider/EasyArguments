@@ -70,6 +70,12 @@ public class ArgumentsController<T> where T : new()
 	}
 
 	/// <summary>
+	/// Parses the command-line arguments into an instance of type <typeparamref name="T"/>.
+	/// </summary>
+	/// <returns>An instance of type <typeparamref name="T"/> with the parsed arguments.</returns>
+	public T Parse() => Parse(out var _);
+
+	/// <summary>
 	/// Extracts the properties bound to arguments in the type <typeparamref name="T"/>.
 	/// </summary>
 	/// <remarks>
