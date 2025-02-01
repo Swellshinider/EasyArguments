@@ -14,7 +14,10 @@ public static class Program
 				Console.ResetColor();
 
 				var controller = new ArgumentsController<MyArgs>(input);
-				var result = controller.Parse();
+				var result = controller.Parse(out var helpMessageDisplayed);
+				
+				if (helpMessageDisplayed)
+					continue;
 				
 				Console.WriteLine("Parsing result:\n");
 				Console.WriteLine(result);
