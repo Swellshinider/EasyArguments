@@ -93,44 +93,30 @@ public class ArgumentsController<T> where T : new()
 	private bool ParseObject(object target)
 	{
 		var propertyBindings = target.GetType().ExtractProperties();
-		var separator = _controllerAttribute.Separator;
 
 		foreach (var binding in propertyBindings)
 		{
-			var property = binding.Property;
-			var attribute = binding.ArgumentAttr;
-
 			if (Current == null)
 			{
-				ValidateRequired(binding, attribute);
-				SetupBooleanDefault(target, binding, property, attribute);
+				ValidateRequirement(binding);
+				SetupBooleanDefault(target, binding);
 			}
 			else if (IsHelp && _controllerAttribute.AutoHelpArgument)
 			{
 				DisplayUsage(propertyBindings);
 				return true;
 			}
-			else if (binding.Matches(Current, separator))
+			else if (binding.Matches(Current, _controllerAttribute.Separator))
 			{
-				// If matches and it's not a primitive type, must be a nested argument
-				if (property.PropertyType.IsNestedArgument()) 
-				{
-					// help was displayed
-					if (ParseNestedArguments(target, binding, property))
-						return true;
-				}
-				else // Otherwise is a normal argument
-					ParseArgumentValue(target, separator, binding, property);
+				if (ParseMatchedArgument(target, binding))
+					return true;
 			}
-			else if (propertyBindings.Any(p => p.Matches(Current, separator)))
+			else if (propertyBindings.Any(p => p.Matches(Current, _controllerAttribute.Separator)))
 			{
-				if (property.PropertyType == typeof(bool) && attribute.InvertBoolean)
-					binding.AssignValue(target, !attribute.InvertBoolean);
+				CheckIfIsBooleanAndAssignIt(target, binding);
 			}
 			else
 			{
-				// If 'Current' does not matches with the current binding and any other binding, assign the value directly
-				// Means it's a positional argument
 				binding.AssignValue(target, Current);
 				_position++;
 			}
@@ -139,26 +125,22 @@ public class ArgumentsController<T> where T : new()
 		return false;
 	}
 
-	private static void DisplayUsage(IEnumerable<PropertyBinding> propertyBindings)
+	private bool ParseMatchedArgument(object target, PropertyBinding binding)
 	{
-		foreach (var prop in propertyBindings)
-			Console.WriteLine(prop.Usage());
+		// if is a nested argument
+		if (binding.Property.PropertyType.IsNestedArgument())
+		{
+			// if help was displayed
+			if (ParseNestedArgument(target, binding))
+				return true;
+		}
+		else // Otherwise is a normal argument
+			ParseValueToArgument(target, binding);
+			
+		return false;
 	}
-
-	private static void SetupBooleanDefault(object target, PropertyBinding binding, PropertyInfo property, ArgumentAttribute attribute)
-	{
-		// If no argument is provided and the property is a boolean with inversion, set its default value
-		if (property.PropertyType == typeof(bool) && attribute.InvertBoolean)
-			binding.AssignValue(target, !attribute.InvertBoolean);
-	}
-
-	private static void ValidateRequired(PropertyBinding binding, ArgumentAttribute attribute)
-	{
-		if (attribute.Required)
-			throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
-	}
-
-	private void ParseArgumentValue(object target, char separator, PropertyBinding binding, PropertyInfo property)
+	
+	private void ParseValueToArgument(object target, PropertyBinding binding)
 	{
 		var argument = Current!;
 		_position++;
@@ -167,14 +149,14 @@ public class ArgumentsController<T> where T : new()
 		if (Current == null)
 		{
 			// If has a separator (--arg=value), we must parse into two parts
-			if (argument.Contains(separator))
+			if (argument.Contains(_controllerAttribute.Separator))
 			{
-				var parts = argument.Split(separator, 2);
+				var parts = argument.Split(_controllerAttribute.Separator, 2);
 				binding.AssignValue(target, parts[1]);
 			}
 
 			// No separator (--verbose), should be a boolean flag
-			else if (property.PropertyType.IsBoolean())
+			else if (binding.Property.PropertyType.IsBoolean())
 				binding.AssignValue(target, true);
 
 			// If no separator and it's not a boolean, throw error
@@ -182,7 +164,7 @@ public class ArgumentsController<T> where T : new()
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
 		}
 		// Check if the current is a separator
-		else if (Current.Contains(separator))
+		else if (Current.Contains(_controllerAttribute.Separator))
 		{
 			// Advance one to get the value
 			_position++;
@@ -194,7 +176,7 @@ public class ArgumentsController<T> where T : new()
 			_position++;
 		}
 		// If matches with an argument, then is missing a value 
-		else if (binding.Matches(Current, separator))
+		else if (binding.Matches(Current, _controllerAttribute.Separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
 		else if (binding.Property.PropertyType.IsBoolean())
 			binding.AssignValue(target, true);
@@ -205,13 +187,38 @@ public class ArgumentsController<T> where T : new()
 		}
 	}
 
-	private bool ParseNestedArguments(object target, PropertyBinding binding, PropertyInfo property)
+	private bool ParseNestedArgument(object target, PropertyBinding binding)
 	{
-		var nestedInstance = Activator.CreateInstance(property.PropertyType)!;
+		var nestedInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
 
 		binding.AssignValue(target, nestedInstance);
 
 		_position++;
 		return ParseObject(nestedInstance);
+	}
+
+	private static void ValidateRequirement(PropertyBinding binding)
+	{
+		if (binding.ArgumentAttr.Required)
+			throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
+	}
+	
+	private static void CheckIfIsBooleanAndAssignIt(object target, PropertyBinding binding)
+	{
+		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
+	}
+
+	private static void DisplayUsage(IEnumerable<PropertyBinding> propertyBindings)
+	{
+		foreach (var prop in propertyBindings)
+			Console.WriteLine(prop.Usage());
+	}
+
+	private static void SetupBooleanDefault(object target, PropertyBinding binding)
+	{
+		// If no argument is provided and the property is a boolean with inversion, set its default value
+		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
 	}
 }
