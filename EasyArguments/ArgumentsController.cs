@@ -122,9 +122,9 @@ public class ArgumentsController<T> where T : new()
 				else // Otherwise is a normal argument
 					ParseArgumentValue(target, separator, binding, property);
 			}
-			else if (propertyBindings.Any(p => p.Matches(Current, separator)) && property.PropertyType == typeof(bool))
+			else if (propertyBindings.Any(p => p.Matches(Current, separator)))
 			{
-				if (attribute.InvertBoolean)
+				if (property.PropertyType == typeof(bool) && attribute.InvertBoolean)
 					binding.AssignValue(target, !attribute.InvertBoolean);
 			}
 			else
@@ -162,7 +162,7 @@ public class ArgumentsController<T> where T : new()
 	{
 		var argument = Current!;
 		_position++;
-
+		
 		// If current is null, means that our 'argument' is the last one
 		if (Current == null)
 		{
@@ -181,7 +181,6 @@ public class ArgumentsController<T> where T : new()
 			else
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
 		}
-
 		// Check if the current is a separator
 		else if (Current.Contains(separator))
 		{
@@ -194,12 +193,10 @@ public class ArgumentsController<T> where T : new()
 			binding.AssignValue(target, Current);
 			_position++;
 		}
-
 		// If matches with an argument, then is missing a value 
 		else if (binding.Matches(Current, separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
-
-		if (binding.Property.PropertyType.IsBoolean())
+		else if (binding.Property.PropertyType.IsBoolean())
 			binding.AssignValue(target, true);
 		else
 		{
