@@ -28,7 +28,7 @@ public class ArgumentsController<T> where T : new()
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
 	}
-	
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="ArgumentsController{T}"/> class with the specified command-line arguments.
 	/// </summary>
@@ -51,7 +51,7 @@ public class ArgumentsController<T> where T : new()
 			return _tokens[_position];
 		}
 	}
-	
+
 	private bool IsHelp => Current == "-h" || Current == "--help";
 
 	/// <summary>
@@ -63,7 +63,7 @@ public class ArgumentsController<T> where T : new()
 	{
 		var instance = new T();
 		_position = 0;
-		
+
 		helpMessageDisplayed = ParseObject(instance);
 
 		return instance;
@@ -99,7 +99,7 @@ public class ArgumentsController<T> where T : new()
 		{
 			var property = binding.Property;
 			var attribute = binding.ArgumentAttr;
-			
+
 			if (Current == null)
 			{
 				ValidateRequired(binding, attribute);
@@ -110,28 +110,32 @@ public class ArgumentsController<T> where T : new()
 				DisplayUsage(propertyBindings);
 				return true;
 			}
-			else if (binding.Matches(Current, separator)) 
+			else if (binding.Matches(Current, separator))
 			{
 				// If matches and it's not a primitive type, must be a nested argument
-				if (property.PropertyType.IsNestedArgument())
-					ParseNestedArguments(target, binding, property);
-					
+				if (property.PropertyType.IsNestedArgument()) 
+				{
+					// help was displayed
+					if (ParseNestedArguments(target, binding, property))
+						return true;
+				}
 				else // Otherwise is a normal argument
 					ParseArgumentValue(target, separator, binding, property);
 			}
-			else if (propertyBindings.Any(p => p.Matches(Current, separator)) && 
-				 	 property.PropertyType == typeof(bool) && 
-					 attribute.InvertBoolean)
-			{	
-				binding.AssignValue(target, !attribute.InvertBoolean);
+			else if (propertyBindings.Any(p => p.Matches(Current, separator)) && property.PropertyType == typeof(bool))
+			{
+				if (attribute.InvertBoolean)
+					binding.AssignValue(target, !attribute.InvertBoolean);
 			}
-			
-			// If 'Current' does not matches with the current binding and any other binding, assign the value directly
-			// Means it's a positional argument
-			binding.AssignValue(target, Current);
-			_position++;
+			else
+			{
+				// If 'Current' does not matches with the current binding and any other binding, assign the value directly
+				// Means it's a positional argument
+				binding.AssignValue(target, Current);
+				_position++;
+			}
 		}
-		
+
 		return false;
 	}
 
@@ -183,34 +187,34 @@ public class ArgumentsController<T> where T : new()
 		{
 			// Advance one to get the value
 			_position++;
-			
+
 			if (Current == null)
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
-			
+
 			binding.AssignValue(target, Current);
 			_position++;
 		}
-		
+
 		// If matches with an argument, then is missing a value 
 		else if (binding.Matches(Current, separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
-		
+
 		if (binding.Property.PropertyType.IsBoolean())
 			binding.AssignValue(target, true);
-		else 
+		else
 		{
 			binding.AssignValue(target, Current);
 			_position++;
-		} 
+		}
 	}
 
-	private void ParseNestedArguments(object target, PropertyBinding binding, PropertyInfo property)
+	private bool ParseNestedArguments(object target, PropertyBinding binding, PropertyInfo property)
 	{
 		var nestedInstance = Activator.CreateInstance(property.PropertyType)!;
 
 		binding.AssignValue(target, nestedInstance);
 
 		_position++;
-		ParseObject(nestedInstance);
+		return ParseObject(nestedInstance);
 	}
 }
