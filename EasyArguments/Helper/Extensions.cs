@@ -11,12 +11,12 @@ namespace EasyArguments.Helper;
 public static partial class Extensions
 {
 	/// <summary>
-	/// A simple extension method to parse known boolean strings (true/false/yes/no/1/0).
+	/// A simple extension method to parse known boolean strings (true/false).
 	/// </summary>
 	public static bool ToBoolean(this string value) => value.Trim().ToLower() switch
 	{
-		"true" or "1" or "yes" or "y" => true,
-		"false" or "0" or "no" or "n" => false,
+		"true" => true,
+		"false" => false,
 		_ => throw new ArgumentException($"Unable to interpret '{value}' as a valid boolean. Invalid argument type")
 	};
 
@@ -38,7 +38,8 @@ public static partial class Extensions
 			if (token.StartsWith('\"') && token.EndsWith('\"'))
 				token = token[1..(token.Length - 1)];
 
-			tokens.Add(token);
+			if (!string.IsNullOrWhiteSpace(token))
+				tokens.Add(token);
 		}
 
 		return tokens;

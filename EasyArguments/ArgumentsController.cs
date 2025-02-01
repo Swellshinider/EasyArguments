@@ -28,6 +28,18 @@ public class ArgumentsController<T> where T : new()
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
 	}
+	
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ArgumentsController{T}"/> class with the specified command-line arguments.
+	/// </summary>
+	/// <param name="argLine">The command-line arguments to parse.</param>
+	public ArgumentsController(string argLine)
+	{
+		_rootType = typeof(T);
+		_tokens = argLine.Tokenize();
+		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingControllerException(_rootType);
+	}
 
 	private string? Current
 	{
@@ -83,6 +95,10 @@ public class ArgumentsController<T> where T : new()
 				if (attribute.Required)
 					throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
 
+				// If no argument is informed and the binding is a boolean and should be inverted, lets initialize it
+				if (property.PropertyType == typeof(bool) && attribute.InvertBoolean)
+					binding.AssignValue(target, !attribute.InvertBoolean);
+				
 				continue;
 			}
 			
@@ -90,15 +106,34 @@ public class ArgumentsController<T> where T : new()
 			if ((Current == "-h" || Current == "--help") && _controllerAttribute.AutoHelpArgument && !helpPrinted)
 			{
 				Console.WriteLine(binding.Usage());
-				return true;
+				helpPrinted = true;
 			}
 			
-			// If matches and it's not a primitive type, must be a nested argument
-			if (binding.Matches(Current, separator) && property.PropertyType.IsNestedArgument())
-				helpPrinted = CreateAndParseNestedInstance(target, binding, property);
+			if (binding.Matches(Current, separator)) 
+			{
+				// If matches and it's not a primitive type, must be a nested argument
+				if (property.PropertyType.IsNestedArgument())
+					helpPrinted = CreateAndParseNestedInstance(target, binding, property);
+					
+				// Otherwise is a normal argument
+				else 
+					ParseArgumentValue(target, separator, binding, property);
+			}
 			
-			else if (binding.Matches(Current, separator))
-				ParseArgumentValue(target, separator, binding, property);
+			// If 'Current' matches with another binding, initialize the actual binding if is a boolean and should be inverted
+			else if (propertyBindings.Any(p => p.Matches(Current, separator)))
+			{	
+				if (property.PropertyType == typeof(bool) && attribute.InvertBoolean)
+					binding.AssignValue(target, !attribute.InvertBoolean);
+			}
+			
+			// If 'Current' does not matches with the current binding and any other binding, assign the value directly
+			// Means it's a positional argument
+			else 
+			{
+				binding.AssignValue(target, Current);
+				_position++;
+			}
 		}
 		
 		return helpPrinted;
@@ -116,12 +151,12 @@ public class ArgumentsController<T> where T : new()
 			if (argument.Contains(separator))
 			{
 				var parts = argument.Split(separator, 2);
-				ApplyValue(target, binding, ConvertValue(binding, parts[1]));
+				binding.AssignValue(target, parts[1]);
 			}
 
 			// No separator (--verbose), should be a boolean flag
 			else if (property.PropertyType.IsBoolean())
-				ApplyValue(target, binding, true);
+				binding.AssignValue(target, true);
 
 			// If no separator and it's not a boolean, throw error
 			else
@@ -129,20 +164,29 @@ public class ArgumentsController<T> where T : new()
 		}
 
 		// Check if the current is a separator
-		else if (Current.Equals(separator))
+		else if (Current.Contains(separator))
 		{
+			// Advance one to get the value
 			_position++;
-			ApplyValue(target, binding, ConvertValue(binding, Current));
+			
+			if (Current == null)
+				throw new ArgumentException($"No value found for provided argument '{argument}'");
+			
+			binding.AssignValue(target, Current);
 			_position++;
 		}
 		
 		// If matches with an argument, then is missing a value 
 		else if (binding.Matches(Current, separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
-			
-		// is a value itself
+		
+		if (binding.Property.PropertyType.IsBoolean())
+			binding.AssignValue(target, true);
 		else 
-			ApplyValue(target, binding, ConvertValue(binding, Current));
+		{
+			binding.AssignValue(target, Current);
+			_position++;
+		} 
 	}
 
 	private bool CreateAndParseNestedInstance(object target, PropertyBinding binding, PropertyInfo property)
@@ -150,67 +194,10 @@ public class ArgumentsController<T> where T : new()
 		bool helpPrinted;
 		var nestedInstance = Activator.CreateInstance(property.PropertyType)!;
 
-		ApplyValue(target, binding, nestedInstance);
+		binding.AssignValue(target, nestedInstance);
 
 		_position++;
 		helpPrinted = ParseObject(nestedInstance);
 		return helpPrinted;
-	}
-
-	private void ApplyValue(object target, PropertyBinding binding, object? value, bool recurrence = false)
-	{
-		binding.Property.SetValue(target, value);
-		
-		if (!_controllerAttribute.ExecuteWhenParsing || recurrence)
-			return;
-		
-		foreach (var execAttrib in binding.Property.GetCustomAttributes<ExecutorAttribute>())
-		{
-			var currentValue = binding.Property.GetValue(target);
-			var resultValue = execAttrib.MethodInfo.Invoke(target, [currentValue]);
-			
-			if (execAttrib.AssignResultToProperty)
-				ApplyValue(target, binding, resultValue, true);
-		}
-	}
-
-	private static object? ConvertValue(PropertyBinding binding, string? value)
-	{
-		var propType = binding.Property.PropertyType;
-		var argAttr = binding.ArgumentAttr;
-
-		// If property is bool or bool?, no value means just set it to true and check if InvertBoolean is set.
-		if (propType.IsBoolean())
-		{
-			var boolValue = string.IsNullOrEmpty(value) || value.ToBoolean();
-
-			if (argAttr.InvertBoolean)
-				boolValue = !boolValue;
-
-			// If property is bool? (nullable), box the bool into bool? 
-			if (propType == typeof(bool?))
-				return (bool?)boolValue;
-			else
-				return boolValue;
-		}
-
-		// If it’s a string property, just set it directly:
-		if (propType == typeof(string))
-			return value;
-
-		// If no value was provided but it's not a boolean -> might be an error
-		if (string.IsNullOrEmpty(value))
-			throw new ArgumentException($"{binding.GetName()} must receive a value");
-
-		// Attempt to convert to other known types (int, float, enum, etc.) 
-		// For simplicity, we'll just let Convert.ChangeType handle primitives.
-		try
-		{
-			return Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
-		}
-		catch (Exception ex)
-		{
-			throw new ArgumentException($"Failed to convert value '{value}' to type {propType.Name}: {ex.Message}", ex);
-		}
 	}
 }
