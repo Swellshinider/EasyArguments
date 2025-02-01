@@ -2,31 +2,30 @@
 
 public static class Program
 {
-	public static void Main(string[] args)
+	public static void Main()
 	{
-		// Instantiate a controller for your argument class
-		var controller = new ArgumentsController<MyArgs>(args);
-
-		try
+		while (true)
 		{
-			// Parse the given args
-			var parsed = controller.Parse();
-
-			// Now you can use the strongly-typed properties:
-			Console.WriteLine($"Name: {parsed.Name}");
-			Console.WriteLine($"Verbose: {parsed.Verbose}");
-			Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
-
-			// If the user included "start" on the CLI, 
-			// then parsed.Start != null and has its own parsed values:
-			if (parsed.Start != null)
+			try
 			{
-				Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
+				Console.ForegroundColor = ConsoleColor.Cyan;
+				Console.Write("> ");
+				var input = Console.ReadLine() ?? "";
+				Console.ResetColor();
+
+				var controller = new ArgumentsController<MyArgs>(input);
+				var result = controller.Parse();
+				
+				Console.WriteLine("Parsing result:\n");
+				Console.WriteLine(result);
+				Console.WriteLine();
 			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine(ex.Message);
+			catch (Exception ex)
+			{
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine(ex.Message);
+				Console.ResetColor();
+			}
 		}
 	}
 }
