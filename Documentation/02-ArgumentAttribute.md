@@ -1,6 +1,6 @@
 # ArgumentAttribute
 
-[← Previous: ArgumentsControllerAttribute](Overview.md) • [[Source File]](../EasyArguments/Attributes/ArgumentAttribute.cs) • [Next: ExecutorAttribute →](./03-ExecutorAttribute.md)
+[← Previous: ArgumentsControllerAttribute](./01-ArgumentsControllerAttribute.md) • [[Source: ArgumentAttribute.cs]](../EasyArguments/Attributes/ArgumentAttribute.cs) • [Next: ExecutorAttribute →](./03-ExecutorAttribute.md)
 
 ## Table of Contents
 
@@ -14,7 +14,6 @@
   - [Validation Rules](#validation-rules)
   - [Positional Arguments](#positional-arguments)
         - [Example:](#example)
-        - [Usage:](#usage-1)
   - [Error Conditions](#error-conditions)
 
 ## Attribute Properties
@@ -80,9 +79,7 @@ public class MyArguments
 
 ## Positional Arguments
 
-Arguments are positional, witch means that if you do not specfy the argument and only set the value it should work!
-
-##### Example:
+Arguments are positional, which means that if you do not specify the argument name and only provide the value, it should still work.
 
 ```csharp
 [ArgumentsController(Name = "app_name.exe")]
@@ -93,7 +90,7 @@ public class MyArguments
 }
 ```
 
-##### Usage: 
+##### Example: 
 
   - Works with:
     ```bash
@@ -110,4 +107,4 @@ public class MyArguments
 - **ArgumentException:** Required argument not provided
 - **FormatException:** Invalid value type conversion
 
-[← Previous: ArgumentsControllerAttribute](Overview.md) • [[Source File]](../EasyArguments/Attributes/ArgumentAttribute.cs) • [Next: ExecutorAttribute →](./03-ExecutorAttribute.md)
+[← Previous: ArgumentsControllerAttribute](./01-ArgumentsControllerAttribute.md) • [[Source: ArgumentAttribute.cs]](../EasyArguments/Attributes/ArgumentAttribute.cs) • [Next: ExecutorAttribute →](./03-ExecutorAttribute.md)

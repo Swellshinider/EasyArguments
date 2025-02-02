@@ -1,6 +1,6 @@
 # ArgumentsControllerAttribute
 
-[← Back to Overview](Overview.md) • [[Source File]](../EasyArguments/Attributes/ArgumentsControllerAttribute.cs) • [Next: ArgumentAttribute →](./02-ArgumentAttribute.md)
+[← Back to Overview](Overview.md) • [[Source: ArgumentsControllerAttribute.cs]](../EasyArguments/Attributes/ArgumentsControllerAttribute.cs) • [Next: ArgumentAttribute →](./02-ArgumentAttribute.md)
 
 ## Table of Contents
 
@@ -45,4 +45,4 @@ public class MyArguments
 }
 ```
 
-[← Back to Overview](Overview.md) • [[Source File]](../EasyArguments/Attributes/ArgumentsControllerAttribute.cs) • [Next: ArgumentAttribute →](./02-ArgumentAttribute.md)
+[← Back to Overview](Overview.md) • [[Source: ArgumentsControllerAttribute.cs]](../EasyArguments/Attributes/ArgumentsControllerAttribute.cs) • [Next: ArgumentAttribute →](./02-ArgumentAttribute.md)
