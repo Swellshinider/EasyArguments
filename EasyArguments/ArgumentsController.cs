@@ -42,10 +42,19 @@ public class ArgumentsController<T> where T : new()
 			?? throw new MissingControllerException(_rootType);
 	}
 
+	/// <summary>
+	/// Gets or sets the color of the application name in the usage text.
+	/// </summary>
 	public ConsoleColor ApplicationNameColor { get; set; } = ConsoleColor.Cyan;
 
+	/// <summary>
+	/// Gets or sets the color used to highlight required arguments in the usage text.
+	/// </summary>
 	public ConsoleColor RequiredArgumentsHighlightColor { get; set; } = ConsoleColor.Magenta;
 
+	/// <summary>
+	/// Gets or sets the color used to highlight optional arguments in the usage text.
+	/// </summary>
 	public ConsoleColor OptionalArgumentsHighlightColor { get; set; } = ConsoleColor.Green;
 
 	private string? Current
