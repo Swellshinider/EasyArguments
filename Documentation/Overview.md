@@ -1,26 +1,22 @@
 # EasyArguments Documentation
 
-[← Back to README](../README.md)
+- [← Back to README](../README.md)
 
-## Core Components
+### Getting started?
 
-1. **[Arguments Controller](01-ArgumentsController.md)**  
-   The main parser class that orchestrates argument processing
+- [Basic Usage Example](../README.md#basic-usage-example)
+- [Installation Guide](../README.md#installation)
 
-2. **[Argument Attribute](02-ArgumentAttribute.md)**  
-   Attribute for configuring individual command-line parameters
+### Core Components
 
-3. **[Executor Attribute](03-ExecutorAttribute.md)**  
-   Define command handlers and subcommands
+1. **[ArgumentsControllerAttribute](01-ArgumentsControllerAttribute.md)** Attribute responsible to configure your class arguments.
 
-4. **[Controller Configuration](04-ArgumentsControllerAttribute.md)**  
-   Global settings for argument processing
+2. **[ArgumentAttribute](02-ArgumentAttribute.md)** Attribute for configuring individual command-line parameters
 
-5. **[Property Binding](05-PropertyBinding.md)**  
-   Behind-the-scenes value conversion mechanics
+3. **[ExecutorAttribute](03-ExecutorAttribute.md)** Attribute that define command handlers, useful to execute functions automatically
 
-6. **[Extension Methods](06-Extensions.md)**  
-   Additional utilities for advanced scenarios
+4. **[ArgumentsController](04-ArgumentsController.md)** The main parser class that orchestrates argument processing
 
-### Getting Started
-[Basic Usage Example](../README.md#basic-usage-example) • [Installation Guide](../README.md#installation)
+5. **[PropertyBinding](05-PropertyBinding.md)** Behind-the-scenes value conversion mechanics
+
+6. **[Extensions](06-Extensions.md)** Additional utilities for advanced scenarios
