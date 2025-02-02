@@ -2,7 +2,7 @@ using EasyArguments.Attributes;
 
 namespace EasyArguments.Tests.TestClasses;
 
-[ArgumentsController]
+[ArgumentsController(Name = "tests.exe")]
 public class ParentArgs
 {
 	[Argument(null, "--lang", "Display language")]

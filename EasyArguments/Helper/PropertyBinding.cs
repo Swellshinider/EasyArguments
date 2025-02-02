@@ -7,7 +7,7 @@ namespace EasyArguments.Helper;
 /// <summary>
 /// Small helper class to tie together a property and its <see cref="ArgumentAttribute"/>.
 /// </summary>
-public class PropertyBinding
+public record PropertyBinding
 {
 	/// <summary>
 	/// The padding size used for formatting the usage string.
@@ -49,6 +49,11 @@ public class PropertyBinding
 	public List<PropertyBinding> Children { get; }
 
 	/// <summary>
+	/// Gets a value indicating whether this property binding has child bindings.
+	/// </summary>
+	public bool IsParent => Children.Count > 0;
+
+	/// <summary>
 	/// Returns true if <paramref name="arg"/> matches either this property's
 	/// short name or long name (without considering any '=' or other characters).
 	/// </summary>
@@ -65,39 +70,26 @@ public class PropertyBinding
 	/// <summary>
 	/// Builds a usage string for the current property argument.
 	/// </summary>
-	public string Usage(string indentation = "")
+	public string Usage()
 	{
 		var builder = new StringBuilder();
-		var prefix = string.Empty;
-
-		if (Parent != null)
-			prefix = $"{indentation}{Parent.GetName()} ";
-
-		prefix += GetName();
-		builder.Append($"{prefix.PadRight(PAD_SIZE)}{ArgumentAttr.HelpMessage}{(ArgumentAttr.Required ? " (Required)" : "")}");
-
-		// Add a new line if has children
-		if (Children.Count != 0)
-			builder.AppendLine();
-
-		indentation += "    ";
-		foreach (var child in Children)
-			builder.AppendLine(child.Usage(indentation));
-
+		
+		builder.Append(GetName().PadRight(PAD_SIZE));
+		builder.Append(ArgumentAttr.HelpMessage);
+		
 		return builder.ToString();
 	}
 
 	/// <summary>
 	/// Returns a nice formatting of <see cref="ArgumentAttribute.ShortName"/> and <see cref="ArgumentAttribute.LongName"/>.
-	/// Example: [-v, --version] if optional, or -v, --version if required.
 	/// </summary>
+	/// <remarks> 
+	/// Example: <c>[-v, --version]</c> if optional, or <c>-v, --version</c> if required.
+	/// </remarks>
 	public string GetName()
 	{
 		var sb = new StringBuilder();
-		var required = ArgumentAttr.Required;
-
-		if (!required) sb.Append('[');
-
+		
 		if (!string.IsNullOrWhiteSpace(ArgumentAttr.ShortName))
 		{
 			sb.Append(ArgumentAttr.ShortName);
@@ -109,8 +101,90 @@ public class PropertyBinding
 		if (!string.IsNullOrWhiteSpace(ArgumentAttr.LongName))
 			sb.Append(ArgumentAttr.LongName);
 			
-		if (!required) sb.Append(']');
-
 		return sb.ToString();
+	}
+	
+	internal string GetAvailableName()
+	{
+		if (!string.IsNullOrWhiteSpace(ArgumentAttr.ShortName))
+			return ArgumentAttr.ShortName;
+			
+		return ArgumentAttr.LongName ?? "";
+	}
+
+	/// <summary>
+	/// Assigns a value to the property of the target object, converting the value if necessary.
+	/// </summary>
+	/// <param name="target">The object whose property value is to be set.</param>
+	/// <param name="value">The value to assign to the property. Can be null for boolean properties.</param>
+	/// <exception cref="ArgumentException">
+	/// Thrown if the property is not a boolean and the value is null, or if the value cannot be converted to the property type.
+	/// </exception>
+	public void AssignValue(object target, object? value)
+	{
+		var propType = Property.PropertyType;
+		var argAttr = ArgumentAttr;
+		
+		// If property is bool or bool?, no value means just set it to true and check if InvertBoolean is set.
+		if (propType.IsBoolean())
+		{
+			bool bValue;
+			
+			if (value is string str)
+				bValue = str.ToBoolean();
+			else if (value is bool bl)
+				bValue = bl;
+			else 
+				bValue = value == null;
+
+			if (argAttr.InvertBoolean)
+				bValue = !bValue;
+
+			// If property is bool? (nullable), box the bool into bool? 
+			if (propType == typeof(bool?))
+				Property.SetValue(target, (bool?)bValue);
+			else
+				Property.SetValue(target, bValue);
+			
+			Execute(target);
+			return;
+		}
+
+		// If no value was provided but it's not a boolean -> might be an error
+		if (value == null)
+			throw new ArgumentException($"{GetName()} must receive a value");
+
+		// If it’s a string property, just set it directly:
+		if (propType == typeof(string)) 
+		{
+			Property.SetValue(target, value);
+			Execute(target);
+			return;
+		}
+
+		// Attempt to convert to other known types (int, float, enum, etc.) 
+		// For simplicity, we'll just let Convert.ChangeType handle primitives.
+		try
+		{
+			var converterValue = Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
+			Property.SetValue(target, converterValue);
+			Execute(target);
+		}
+		catch (Exception ex)
+		{
+			throw new ArgumentException($"Failed to convert value '{value}' to type {propType.Name}: {ex.Message}", ex);
+		}
+	}
+
+	private void Execute(object target)
+	{
+		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())
+		{
+			var currentValue = Property.GetValue(target);
+			var resultValue = execAttrib.MethodInfo.Invoke(target, [currentValue]);
+			
+			if (execAttrib.AssignResultToProperty)
+				AssignValue(target, resultValue);
+		}
 	}
 }

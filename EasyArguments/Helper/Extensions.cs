@@ -11,12 +11,12 @@ namespace EasyArguments.Helper;
 public static partial class Extensions
 {
 	/// <summary>
-	/// A simple extension method to parse known boolean strings (true/false/yes/no/1/0).
+	/// A simple extension method to parse known boolean strings (true/false).
 	/// </summary>
 	public static bool ToBoolean(this string value) => value.Trim().ToLower() switch
 	{
-		"true" or "1" or "yes" or "y" => true,
-		"false" or "0" or "no" or "n" => false,
+		"true" => true,
+		"false" => false,
 		_ => throw new ArgumentException($"Unable to interpret '{value}' as a valid boolean. Invalid argument type")
 	};
 
@@ -38,7 +38,8 @@ public static partial class Extensions
 			if (token.StartsWith('\"') && token.EndsWith('\"'))
 				token = token[1..(token.Length - 1)];
 
-			tokens.Add(token);
+			if (!string.IsNullOrWhiteSpace(token))
+				tokens.Add(token);
 		}
 
 		return tokens;
@@ -61,29 +62,58 @@ public static partial class Extensions
 			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
 				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
 
-			var propBind = new PropertyBinding(prop, argAttr, parent);
+			var boundProperty = new PropertyBinding(prop, argAttr, parent);
 
 			// If this is a class and not string, we consider it as nested arguments
 			if (prop.PropertyType.IsNestedArgument())
-				propBind.Children.AddRange(ExtractProperties(propBind.Property.PropertyType, propBind));
+				boundProperty.Children.AddRange(ExtractProperties(boundProperty.Property.PropertyType, boundProperty));
 
-			yield return propBind;
+			yield return boundProperty;
 		}
 	}
 	
-	internal static string GetUsage(this IEnumerable<PropertyBinding> propertyBindings, bool autoHelp = false)
+	internal static StringBuilder GetUsage(this IEnumerable<PropertyBinding> propertyBindings)
 	{
-		var sb = new StringBuilder();
-		sb.AppendLine("Usage: \n");
+		var builder = new StringBuilder();
+		var requiredArguments = propertyBindings.Where(p => p.ArgumentAttr.Required);
+		var optionalArguments = propertyBindings.Where(p => !p.ArgumentAttr.Required);
 
-		// For each property at this level
-		foreach (var pb in propertyBindings)
-			sb.AppendLine(pb.Usage());
+		builder.AppendLine();
 
-		if (autoHelp)
-			sb.AppendLine($"{"-h, --help".PadRight(PropertyBinding.PAD_SIZE)}Show this help message.\n");
+		WriteRequiredUsage(builder, requiredArguments);
+		WriteOptionalUsage(builder, optionalArguments);
 
-		return sb.ToString();
+		builder.AppendLine();
+		
+		return builder;
+	}
+
+	private static void WriteRequiredUsage(StringBuilder builder, IEnumerable<PropertyBinding> required)
+	{
+		if (!required.Any())
+			return;
+
+		builder.AppendLine("  Required arguments:");
+		Console.ResetColor();
+		
+		foreach (var req in required)
+			builder.AppendLine($"    {req.Usage()}");
+			
+		builder.AppendLine();
+	}
+	
+	private static void WriteOptionalUsage(StringBuilder builder, IEnumerable<PropertyBinding> options)
+	{
+		if (!options.Any())
+			return;
+		
+		builder.AppendLine("  Available options:");
+		Console.ResetColor();
+		
+		foreach (var opt in options)
+			builder.AppendLine($"    {opt.Usage()}");
+		
+		builder.AppendLine();
 	}
 
 	/// <summary>

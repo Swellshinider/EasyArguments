@@ -7,12 +7,8 @@ public class ExtensionsTests
 	[Theory]
 	[InlineData("true", true)]
 	[InlineData("TRUE", true)]
-	[InlineData("1", true)]
-	[InlineData("yes", true)]
 	[InlineData("false", false)]
 	[InlineData("FALSE", false)]
-	[InlineData("0", false)]
-	[InlineData("no", false)]
 	public void ToBoolean_ValidValues_ReturnsExpected(string input, bool expected)
 	{
 		Assert.Equal(expected, input.ToBoolean());

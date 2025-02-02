@@ -2,6 +2,7 @@
 using EasyArguments.Exceptions;
 using EasyArguments.Helper;
 using System.Reflection;
+using System.Text;
 
 namespace EasyArguments;
 
@@ -29,6 +30,33 @@ public class ArgumentsController<T> where T : new()
 			?? throw new MissingControllerException(_rootType);
 	}
 
+	/// <summary>
+	/// Initializes a new instance of the <see cref="ArgumentsController{T}"/> class with the specified command-line arguments.
+	/// </summary>
+	/// <param name="argLine">The command-line arguments to parse.</param>
+	public ArgumentsController(string argLine)
+	{
+		_rootType = typeof(T);
+		_tokens = argLine.Tokenize();
+		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
+			?? throw new MissingControllerException(_rootType);
+	}
+
+	/// <summary>
+	/// Gets or sets the color of the application name in the usage text.
+	/// </summary>
+	public ConsoleColor ApplicationNameColor { get; set; } = ConsoleColor.Cyan;
+
+	/// <summary>
+	/// Gets or sets the color used to highlight required arguments in the usage text.
+	/// </summary>
+	public ConsoleColor RequiredArgumentsHighlightColor { get; set; } = ConsoleColor.Magenta;
+
+	/// <summary>
+	/// Gets or sets the color used to highlight optional arguments in the usage text.
+	/// </summary>
+	public ConsoleColor OptionalArgumentsHighlightColor { get; set; } = ConsoleColor.Green;
+
 	private string? Current
 	{
 		get
@@ -40,71 +68,95 @@ public class ArgumentsController<T> where T : new()
 		}
 	}
 
+	private bool CurrentIsHelp => Current == "-h" || Current == "--help";
+
+	private bool HelpExist => _tokens.Any(t => t.Contains("-h") || t.Contains("--help"));
+
 	/// <summary>
-	/// Parses the command-line arguments and returns an instance of type <typeparamref name="T"/>.
+	/// Parses the command-line arguments into an instance of type <typeparamref name="T"/>.
 	/// </summary>
-	/// <returns>An instance of type <typeparamref name="T"/> populated with the parsed arguments.</returns>
-	public T Parse()
+	/// <param name="helpMessageDisplayed">Indicates whether the help message was displayed.</param>
+	/// <returns>An instance of type <typeparamref name="T"/> with the parsed arguments.</returns>
+	public T Parse(out bool helpMessageDisplayed)
 	{
 		var instance = new T();
 		_position = 0;
 
-		_ = ParseObject(instance);
+		helpMessageDisplayed = ParseObject(instance, ExtractBoundProperties());
 
 		return instance;
 	}
 
 	/// <summary>
+	/// Parses the command-line arguments into an instance of type <typeparamref name="T"/>.
+	/// </summary>
+	/// <returns>An instance of type <typeparamref name="T"/> with the parsed arguments.</returns>
+	public T Parse() => Parse(out var _);
+
+	/// <summary>
 	/// Extracts the properties bound to arguments in the type <typeparamref name="T"/>.
 	/// </summary>
+	/// <remarks>
+	/// Useful if you wanna build your own parser.
+	/// </remarks>
 	/// <returns>An enumerable of <see cref="PropertyBinding"/> representing the bound properties.</returns>
 	public IEnumerable<PropertyBinding> ExtractBoundProperties() => _rootType.ExtractProperties();
 
 	/// <summary>
 	/// Generates the usage text for the command-line arguments.
 	/// </summary>
-	/// <returns>A string representing the usage text.</returns>
-	public string GetUsageText() => ExtractBoundProperties().GetUsage(_controllerAttribute.AutoHelpArgument);
+	/// <returns>A <see cref="StringBuilder"/> containing the usage text.</returns>
+	public StringBuilder GetUsageText() => ExtractBoundProperties().GetUsage();
 
-	private bool ParseObject(object target)
+	private bool ParseObject(object target, IEnumerable<PropertyBinding> propertyBindings)
 	{
-		var propertyBindings = target.GetType().ExtractProperties();
-		var separator = _controllerAttribute.Separator;
-		var helpPrinted = false;
-
 		foreach (var binding in propertyBindings)
 		{
-			var property = binding.Property;
-			var attribute = binding.ArgumentAttr;
-			
-			// If there's no more args but the argument is required, throw error
 			if (Current == null)
 			{
-				if (attribute.Required)
-					throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
-
-				continue;
+				ValidateRequirement(binding);
+				SetupBooleanDefault(target, binding);
 			}
-			
-			// If auto help is set to true and help wasn't showed yet, display help
-			if ((Current == "-h" || Current == "--help") && _controllerAttribute.AutoHelpArgument && !helpPrinted)
+			else if (CurrentIsHelp && _controllerAttribute.AutoHelpArgument)
 			{
-				Console.WriteLine(binding.Usage());
+				DisplayUsage(propertyBindings);
 				return true;
 			}
-			
-			// If matches and it's not a primitive type, must be a nested argument
-			if (binding.Matches(Current, separator) && property.PropertyType.IsNestedArgument())
-				helpPrinted = CreateAndParseNestedInstance(target, binding, property);
-			
-			else if (binding.Matches(Current, separator))
-				ParseArgumentValue(target, separator, binding, property);
+			else if (binding.Matches(Current, _controllerAttribute.Separator))
+			{
+				if (ParseMatchedArgument(target, binding))
+					return true;
+			}
+			else if (propertyBindings.Any(p => p.Matches(Current, _controllerAttribute.Separator)))
+			{
+				CheckIfIsBooleanAndAssignIt(target, binding);
+			}
+			else
+			{
+				binding.AssignValue(target, Current);
+				_position++;
+			}
 		}
-		
-		return helpPrinted;
+
+		return false;
 	}
 
-	private void ParseArgumentValue(object target, char separator, PropertyBinding binding, PropertyInfo property)
+	private bool ParseMatchedArgument(object target, PropertyBinding binding)
+	{
+		// if is a nested argument
+		if (binding.Property.PropertyType.IsNestedArgument())
+		{
+			// if help was displayed
+			if (ParseNestedArgument(target, binding))
+				return true;
+		}
+		else // Otherwise is a normal argument
+			ParseValueToArgument(target, binding);
+
+		return false;
+	}
+
+	private void ParseValueToArgument(object target, PropertyBinding binding)
 	{
 		var argument = Current!;
 		_position++;
@@ -113,104 +165,139 @@ public class ArgumentsController<T> where T : new()
 		if (Current == null)
 		{
 			// If has a separator (--arg=value), we must parse into two parts
-			if (argument.Contains(separator))
+			if (argument.Contains(_controllerAttribute.Separator))
 			{
-				var parts = argument.Split(separator, 2);
-				ApplyValue(target, binding, ConvertValue(binding, parts[1]));
+				var parts = argument.Split(_controllerAttribute.Separator, 2);
+				binding.AssignValue(target, parts[1]);
 			}
 
 			// No separator (--verbose), should be a boolean flag
-			else if (property.PropertyType.IsBoolean())
-				ApplyValue(target, binding, true);
+			else if (binding.Property.PropertyType.IsBoolean())
+				binding.AssignValue(target, true);
 
 			// If no separator and it's not a boolean, throw error
 			else
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
 		}
-
 		// Check if the current is a separator
-		else if (Current.Equals(separator))
+		else if (Current.Contains(_controllerAttribute.Separator))
 		{
+			// Advance one to get the value
 			_position++;
-			ApplyValue(target, binding, ConvertValue(binding, Current));
+
+			if (Current == null)
+				throw new ArgumentException($"No value found for provided argument '{argument}'");
+
+			binding.AssignValue(target, Current);
 			_position++;
 		}
-		
 		// If matches with an argument, then is missing a value 
-		else if (binding.Matches(Current, separator))
+		else if (binding.Matches(Current, _controllerAttribute.Separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
-			
-		// is a value itself
-		else 
-			ApplyValue(target, binding, ConvertValue(binding, Current));
+		else if (binding.Property.PropertyType.IsBoolean())
+			binding.AssignValue(target, true);
+		else
+		{
+			binding.AssignValue(target, Current);
+			_position++;
+		}
 	}
 
-	private bool CreateAndParseNestedInstance(object target, PropertyBinding binding, PropertyInfo property)
+	private bool ParseNestedArgument(object target, PropertyBinding binding)
 	{
-		bool helpPrinted;
-		var nestedInstance = Activator.CreateInstance(property.PropertyType)!;
+		var nestedInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
 
-		ApplyValue(target, binding, nestedInstance);
+		binding.AssignValue(target, nestedInstance);
 
 		_position++;
-		helpPrinted = ParseObject(nestedInstance);
-		return helpPrinted;
+		return ParseObject(nestedInstance, binding.Children);
 	}
 
-	private void ApplyValue(object target, PropertyBinding binding, object? value, bool recurrence = false)
+	private void ValidateRequirement(PropertyBinding binding)
 	{
-		binding.Property.SetValue(target, value);
+		if (binding.ArgumentAttr.Required && !HelpExist)
+			throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
+	}
+
+	private void CheckIfIsBooleanAndAssignIt(object target, PropertyBinding binding)
+	{
+		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
+		else
+			ValidateRequirement(binding);
+	}
+
+	private void DisplayUsage(IEnumerable<PropertyBinding> propertyBindings)
+	{
+		var requiredArguments = propertyBindings.Where(p => p.ArgumentAttr.Required);
+		var optionalArguments = propertyBindings.Where(p => !p.ArgumentAttr.Required);
+		var currentName = propertyBindings.Any(p => p.Parent != null)
+						? propertyBindings.First().Parent!.GetName()
+						: _controllerAttribute.Name;
+
+		Console.WriteLine();
+		Console.WriteLine("Usage:");
+		Console.ForegroundColor = ApplicationNameColor;
+		Console.Write($"  {currentName}");
+
+		if (requiredArguments.Any()) 
+		{
+			Console.ForegroundColor = RequiredArgumentsHighlightColor;
+			Console.Write(" <arguments>");
+		}
+
+		if (optionalArguments.Any())
+		{
+			Console.ForegroundColor = OptionalArgumentsHighlightColor;
+			Console.Write(" [options]");
+		}
+
+		Console.WriteLine("\n");
+
+		WriteRequiredUsage(requiredArguments);
+		WriteOptionalUsage(optionalArguments);
+
+		Console.ResetColor();
+		Console.WriteLine();
 		
-		if (!_controllerAttribute.ExecuteWhenParsing || recurrence)
+		if (_controllerAttribute.AutoHelpArgument)
+			Console.WriteLine("Use '-h, --help' with a command to see its details.");
+	}
+
+	private void WriteRequiredUsage(IEnumerable<PropertyBinding> required)
+	{
+		if (!required.Any())
 			return;
+
+		Console.ForegroundColor = RequiredArgumentsHighlightColor;
+		Console.WriteLine("  Required arguments:");
+		Console.ResetColor();
 		
-		foreach (var execAttrib in binding.Property.GetCustomAttributes<ExecutorAttribute>())
-		{
-			var currentValue = binding.Property.GetValue(target);
-			var resultValue = execAttrib.MethodInfo.Invoke(target, [currentValue]);
+		foreach (var req in required)
+			Console.WriteLine($"    {req.Usage()}");
 			
-			if (execAttrib.AssignResultToProperty)
-				ApplyValue(target, binding, resultValue, true);
-		}
+		Console.WriteLine();
+	}
+	
+	private void WriteOptionalUsage(IEnumerable<PropertyBinding> options)
+	{
+		if (!options.Any())
+			return;
+			
+		Console.ForegroundColor = OptionalArgumentsHighlightColor;
+		Console.WriteLine("  Available options:");
+		Console.ResetColor();
+		
+		foreach (var opt in options)
+			Console.WriteLine($"    {opt.Usage()}");
+		
+		Console.WriteLine();
 	}
 
-	private static object? ConvertValue(PropertyBinding binding, string? value)
+	private static void SetupBooleanDefault(object target, PropertyBinding binding)
 	{
-		var propType = binding.Property.PropertyType;
-		var argAttr = binding.ArgumentAttr;
-
-		// If property is bool or bool?, no value means just set it to true and check if InvertBoolean is set.
-		if (propType.IsBoolean())
-		{
-			var boolValue = string.IsNullOrEmpty(value) || value.ToBoolean();
-
-			if (argAttr.InvertBoolean)
-				boolValue = !boolValue;
-
-			// If property is bool? (nullable), box the bool into bool? 
-			if (propType == typeof(bool?))
-				return (bool?)boolValue;
-			else
-				return boolValue;
-		}
-
-		// If it’s a string property, just set it directly:
-		if (propType == typeof(string))
-			return value;
-
-		// If no value was provided but it's not a boolean -> might be an error
-		if (string.IsNullOrEmpty(value))
-			throw new ArgumentException($"{binding.GetName()} must receive a value");
-
-		// Attempt to convert to other known types (int, float, enum, etc.) 
-		// For simplicity, we'll just let Convert.ChangeType handle primitives.
-		try
-		{
-			return Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
-		}
-		catch (Exception ex)
-		{
-			throw new ArgumentException($"Failed to convert value '{value}' to type {propType.Name}: {ex.Message}", ex);
-		}
+		// If no argument is provided and the property is a boolean with inversion, set its default value
+		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
 	}
 }

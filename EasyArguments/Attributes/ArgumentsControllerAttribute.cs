@@ -9,6 +9,14 @@ public sealed class ArgumentsControllerAttribute : Attribute
 	private char _separator = '=';
 	
 	/// <summary>
+	/// Gets or sets the name of the arguments controller.
+	/// </summary>
+	/// <remarks>
+	/// Represents the name that will be displayed when user requests help usage, example: <c>Usage: {Name} &lt;arguments&gt; &lt;options&gt;</c>
+	/// </remarks>
+	public required string Name { get; set; }
+	
+	/// <summary>
 	/// Gets or sets a value indicating whether an automatic help argument should be included.
 	/// </summary>
 	/// <remarks>
