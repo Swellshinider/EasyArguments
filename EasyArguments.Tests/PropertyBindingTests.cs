@@ -30,6 +30,6 @@ public class PropertyBindingTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 
-		Assert.Equal("[-a, --alpha]", binding.GetName());
+		Assert.Equal("-a, --alpha", binding.GetName());
 	}
 }
