@@ -4,146 +4,102 @@
 
 [![GitHub](https://img.shields.io/github/license/swellshinider/EasyArguments)](https://github.com/swellshinider/EasyArguments/blob/main/LICENSE) [![NuGet download count](https://img.shields.io/nuget/dt/EasyArguments)](https://www.nuget.org/packages/EasyArguments) [![NuGet](https://img.shields.io/nuget/v/EasyArguments.svg)](https://www.nuget.org/packages/EasyArguments/) [![Build](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml/badge.svg?branch=main&event=push)](https://github.com/Swellshinider/EasyArguments/actions/workflows/dotnet-desktop.yml)
 
-EasyArguments is a lightweight .NET library that simplifies the process of parsing command-line arguments into strongly-typed objects. It provides attributes to define metadata for arguments and a controller to handle the parsing logic.
+EasyArguments is a lightweight .NET library that simplifies the process of parsing command-line arguments into strongly-typed objects.
+
+![NugetPackageInstallation](./Documentation/Images/help_sample.png)
 
 </div>
 
-### Table of Contents
+## Table of Contents
 
 - [EasyArguments](#easyarguments)
-    - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Configuring the Controller](#configuring-the-controller)
-    - [Defining Arguments](#defining-arguments)
-    - [Parsing Arguments](#parsing-arguments)
-    - [Auto Executing Arguments](#auto-executing-arguments)
-    - [Handling Errors](#handling-errors)
-  - [Full Example](#full-example)
-  - [Plans for the future](#plans-for-the-future)
-  - [Contribution](#contribution)
-    - [How to Contribute](#how-to-contribute)
-  - [License](#license)
+  - [Table of Contents](#table-of-contents)
+  - [About the project](#about-the-project)
+    - [Key Features ✨](#key-features-)
+    - [Why EasyArguments? 🚀](#why-easyarguments-)
+  - [Installation 👌](#installation-)
+  - [Basic Usage Example 📝](#basic-usage-example-)
+    - [1) Setup an argument class](#1-setup-an-argument-class)
+    - [2) Create an instance of ArgumentsController](#2-create-an-instance-of-argumentscontroller)
+  - [Contribution ❤️](#contribution-️)
+  - [License 🪪](#license-)
 
-## Installation
+
+## About the project
+    
+Parsing command-line arguments in .NET applications can often be cumbersome and error-prone, requiring repetitive code to handle different argument formats, validations, and help documentation. **EasyArguments** streamlines this process by providing a simple, declarative way to map command-line arguments to strongly-typed objects with minimal boilerplate code.
+
+### Key Features ✨
+
+- **Attribute-Based Configuration:** Define arguments using [Argument] attributes directly on your model properties.
+
+- **Strongly-Typed Parsing:** Automatically convert arguments to their correct data types (e.g., `string`, `bool`, `int`).
+
+- **Boolean Flags and Inversion:** Support for flags like `--verbose` and inverted options like `--no-gui` with the `InvertBoolean` parameter.
+
+- **Automatic Help Generation:** Built-in `--help` command generates a formatted help screen based on your argument definitions.
+
+- **Validation:** Mark arguments as required, and let the library handle missing or invalid inputs gracefully.
+
+- **Lightweight:** Minimal dependencies and low overhead, designed for performance and simplicity.
+
+### Why EasyArguments? 🚀
+
+- **Reduce Boilerplate:** Eliminate manual parsing loops and condition checks.
+
+- **Intuitive Syntax:** Declare arguments naturally with C# properties and attributes.
+
+- **Flexible:** Supports both short (-n) and long (--name) argument formats.
+
+- **Error Handling:** Clear exception messages guide users when inputs are missing or invalid.
+
+Ideal for developers who want to build robust CLI tools, **EasyArguments** empowers you to define, parse, and validate arguments in minutes. Check out the [Basic Usage Example](#basic-usage-example) to get started or explore the [Full Documentation](./Documentation/EasyArguments_Documentation.md) for advanced features!
+
+## Installation 👌
+
+You can install EasyArguments via terminal:
 
 ```bash
 dotnet add package EasyArguments
 ```
 
-## Usage
+Or via nuget package manager on Visual Studio:
 
+![NugetPackageInstallation](./Documentation/Images/nuget_packagemanager_visualstudio.png)
 
-### Configuring the Controller
+## Basic Usage Example 📝
 
-Use the `ArgumentsControllerAttribute` to configure the behavior of the class that defines the arguments. You can specify whether an automatic help argument should be included, and the character used as a separator.
+This is a basic example. For a comprehensive guide, check out the [Full Documentation](./Documentation/EasyArguments_Documentation.md) 📚. 
+
+### 1) Setup an argument class
 
 ```csharp
+using EasyArguments;
 using EasyArguments.Attributes;
+using System;
 
-[ArgumentsController(AutoHelpArgument = true, Separator = '=')]
+// The 'Name' parameter specifies the name of the application or command,
+// which will be displayed when the user invokes the --help option.
+[ArgumentsController(Name = "you_app.exe")]
 public class MyArgs
 {
-    // Argument definitions
-}
-```
-
-### Defining Arguments
-
-To define command-line arguments, use the `ArgumentAttribute` on properties within a class. You can specify short and long names, help messages, and whether the argument is required.
-
-```csharp
-using EasyArguments.Attributes;
-
-[ArgumentsController(AutoHelpArgument = true, Separator = '=')]
-public class MyArguments
-{
-    // A string argument with both short and long forms:
     [Argument("-n", "--name", "Specifies the user name", Required = true)]
     public string? Name { get; set; }
 
-    // A boolean argument that defaults to false unless called:
     [Argument("-v", "--verbose", "Enable verbose output", Required = false)]
     public bool? Verbose { get; set; }
 
-    // A boolean argument that is "inverted," meaning it defaults to true
-    // and becomes false if specified:
     [Argument(null, "--no-gui", "Disable the GUI", InvertBoolean = true)]
     public bool GuiEnabled { get; set; }
-
-    // A sub-command (nested class) holding its own arguments:
-    [Argument(null, "start", "Start command options")]
-    public StartArgs? Start { get; set; }
-}
-
-public class StartArgs
-{
-    // Arguments that only apply when "start" is used:
-    [Argument("-u", "--url", "URL of the service")]
-    public string? Url { get; set; }
-
-    [Argument("-o", "--output", "Output directory")]
-    public string? Output { get; set; }
 }
 ```
 
-
-### Parsing Arguments
-
-Create an `ArgumentsController` instance and call the method `Parse(string[] args)` to parse the command-line arguments into an instance of your class.
+### 2) Create an instance of ArgumentsController
 
 ```csharp
 using EasyArguments;
 
-static void Main(string[] args)
-{
-    // Instantiate a controller for your argument class
-    var controller = new ArgumentsController<MyArgs>(args);
-
-    // Parse the given args
-    var parsed = controller.Parse();
-
-    // Now you can use the strongly-typed properties:
-    Console.WriteLine($"Name: {parsed.Name}");
-    Console.WriteLine($"Verbose: {parsed.Verbose}");
-    Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
-    
-    // If the user included "start" on the CLI, 
-    // then parsed.Start != null and has its own parsed values:
-    if (parsed.Start != null)
-    {
-        Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
-    }
-}
-```
-
-### Auto Executing Arguments
-
-You can configure arguments to be automatically executed when they are parsed. To do this, set `ExecuteWhenParsing = true` in the `ArgumentsController` attribute and use the `Executor` attribute on the property you want to auto-execute.
-
-```csharp
-[ArgumentsController(ExecuteWhenParsing = true)]
-public class MyArgs
-{
-    [Argument("-v", "--version", "Display version")]
-    [Executor(typeof(ExecuteClass), "DisplayVersion")]
-    public bool DisplayVersion { get; set; }
-}
-
-public static class ExecuteClass
-{
-    public static void DisplayVersion(bool display)
-    {
-        if (display)
-            Console.WriteLine("Version: 1.0");
-    }
-}
-```
-
-```csharp
-using EasyArguments;
-
-class Program
+public class Program
 {
     static void Main(string[] args)
     {
@@ -154,159 +110,11 @@ class Program
 
             // Parse the given args
             MyArgs parsed = controller.Parse();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
-    }
-}
-```
 
-OUTPUT:
-```bash
-Version: 1.0
-```
-
-```csharp
-[ArgumentsController(ExecuteWhenParsing = true)]
-public class MyArgs
-{
-	[Argument("-v", "--version", "Display version")]
-	[Executor(typeof(ExecuteClass), "DisplayVersion")]
-	public bool DisplayVersion { get; set; }
-}
-
-public static class ExecuteClass
-{
-    public static void DisplayVersion(bool display)
-    {
-        if (display)
-            Console.WriteLine("Version: 1.0")
-    }
-}
-
-```
-
-```csharp
-using EasyArguments;
-
-class Program
-{
-    static void Main(string[] args)
-    {
-        try
-        {
-            // Instantiate a controller for your argument class
-            var controller = new ArgumentsController<MyArgs>(args);
-
-            // Parse the given args
-            MyArguments parsed = controller.Parse();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
-    }
-}
-```
-OUTPUT:
-```bash
-Version: 1.0
-```
-
-### Handling Errors
-
-The `ArgumentsController` provides a mechanism to handle errors that are thrown as exceptions. You can simply print the error message to the console to get a nice result.
-
-```csharp
-using EasyArguments;
-
-class Program
-{
-    static void Main(string[] args)
-    {
-        try
-        {
-            // Instantiate a controller for your argument class
-            var controller = new ArgumentsController<MyArgs>(args);
-
-            // Parse the given args
-            MyArguments parsed = controller.Parse();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
-    }
-}
-```
-OUTPUT:
-
-```bash
-> -a
-Unknown argument '-a'. Please use -h or --help for usage information.
-```
-
-## Full Example
-
-Here is a complete example:
-
-```csharp
-using EasyArguments;
-using EasyArguments.Attributes;
-using System;
-
-[ArgumentsController]
-public class MyArgs
-{
-    [Argument("-n", "--name", "Specifies the user name", Required = true)]
-    public string? Name { get; set; }
-
-    [Argument("-v", "--verbose", "Enable verbose output", Required = false)]
-    public bool? Verbose { get; set; }
-
-    [Argument(null, "--no-gui", "Disable the GUI", InvertBoolean = true)]
-    public bool GuiEnabled { get; set; }
-
-    [Argument(null, "start", "Start command options")]
-    public StartArgs? Start { get; set; }
-}
-
-public class StartArgs
-{
-    // Arguments that only apply when "start" is used:
-    [Argument("-u", "--url", "URL of the service")]
-    public string? Url { get; set; }
-
-    [Argument("-o", "--output", "Output directory")]
-    public string? Output { get; set; }
-}
-
-
-class Program
-{
-    static void Main(string[] args)
-    {
-        try
-        {
-            // Instantiate a controller for your argument class
-            var controller = new ArgumentsController<MyArgs>(args);
-
-            // Parse the given args
-            var parsed = controller.Parse();
-
-            // Now you can use the strongly-typed properties:
+            // Now you can use properties as you want:
             Console.WriteLine($"Name: {parsed.Name}");
             Console.WriteLine($"Verbose: {parsed.Verbose}");
-            Console.WriteLine($"GUI enabled? {parsed.GuiEnabled}");
-            
-            // If the user included "start" on the CLI, 
-            // then parsed.Start != null and has its own parsed values:
-            if (parsed.Start != null)
-            {
-                Console.WriteLine($"Starting with URL={parsed.Start.Url}, output={parsed.Start.Output}");
-            }
+            Console.WriteLine($"GUI enabled: {parsed.GuiEnabled}");
         }
         catch (Exception ex)
         {
@@ -316,26 +124,11 @@ class Program
 }
 ```
 
-## Plans for the future
+## Contribution ❤️
 
-- **Enhanced Help Customization** (Issue #9)
-    While `EasyArguments` already generate automatic usage information, I want to give developers more control over the help text’s layout and content. Plans include support for: 
-    - Customizing headings, sections, and formatting in the auto-generated help.
-    - Displaying examples inline with each argument’s description.
-    - Condition-based or role-based help, where certain arguments appear only when relevant.
+Contributions are welcome!  
+If you have ideas to improve **EasyArguments** feel free to open an issue.
 
-## Contribution
-
-Contributions are welcome! If you have ideas to improve EasyArguments feel free to open an issue.
-
-### How to Contribute
-
-- Fork the repository.
-- Create a issue or get an existing one
-- Create a new branch for your issue.
-- Submit a pull request with a detailed explanation of your changes.
-- :)
-
-## License
+## License 🪪
 
 This project is licensed under the GPLv3 License. See the [LICENSE](./LICENSE) file for details.
