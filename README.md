@@ -39,6 +39,8 @@ Parsing command-line arguments in .NET applications can often be cumbersome and 
 
 - **Automatic Help Generation:** Built-in `--help` command generates a formatted help screen based on your argument definitions.
 
+- **Automatic methods execution** Automatically execute any static method that you want while parsing!
+
 - **Validation:** Mark arguments as required, and let the library handle missing or invalid inputs gracefully.
 
 - **Lightweight:** Minimal dependencies and low overhead, designed for performance and simplicity.
