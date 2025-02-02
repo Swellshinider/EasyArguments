@@ -2,7 +2,7 @@ using EasyArguments.Attributes;
 
 namespace EasyArguments.Tests.TestClasses;
 
-[ArgumentsController(ExecuteWhenParsing = true)]
+[ArgumentsController(Name = "tests.exe", ExecuteWhenParsing = true)]
 public class TestArgumentWithExecution
 {
 	[Argument("-v", "--version", "Display version")]

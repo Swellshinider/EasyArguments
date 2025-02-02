@@ -2,7 +2,7 @@ using EasyArguments.Attributes;
 
 namespace EasyArguments.Tests.TestClasses;
 
-[ArgumentsController(AutoHelpArgument = false)]
+[ArgumentsController(Name = "tests.exe", AutoHelpArgument = false)]
 public class RequiredArguments
 {
 	[Argument("-r", "--required", "Required arg", Required = true)]

@@ -12,6 +12,9 @@ public static class Program
 				Console.Write("> ");
 				var input = Console.ReadLine() ?? "";
 				Console.ResetColor();
+				
+				if (input == "exit")
+					break;
 
 				var controller = new ArgumentsController<MyArgs>(input);
 				var result = controller.Parse(out var helpMessageDisplayed);
