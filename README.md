@@ -55,7 +55,7 @@ Parsing command-line arguments in .NET applications can often be cumbersome and 
 
 - **Error Handling:** Clear exception messages guide users when inputs are missing or invalid.
 
-Ideal for developers who want to build robust CLI tools, **EasyArguments** empowers you to define, parse, and validate arguments in minutes. Check out the [Basic Usage Example](#basic-usage-example) to get started or explore the [Full Documentation](./Documentation/EasyArguments_Documentation.md) for advanced features!
+Ideal for developers who want to build robust CLI tools, **EasyArguments** empowers you to define, parse, and validate arguments in minutes. Check out the [Basic Usage Example](#basic-usage-example) to get started or explore the [Full Documentation](./Documentation/Overview.md) for advanced features!
 
 ## Installation 👌
 
@@ -71,7 +71,7 @@ Or via nuget package manager on Visual Studio:
 
 ## Basic Usage Example 📝
 
-This is a basic example. For a comprehensive guide, check out the [Full Documentation](./Documentation/EasyArguments_Documentation.md) 📚. 
+This is a basic example. For a comprehensive guide, check out the [Full Documentation](./Documentation/Overview.md) 📚. 
 
 ### 1) Setup an argument class
 
