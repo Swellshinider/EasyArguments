@@ -2,6 +2,7 @@
 using EasyArguments.Exceptions;
 using EasyArguments.Helper;
 using System.Reflection;
+using System.Text;
 
 namespace EasyArguments;
 
@@ -41,6 +42,12 @@ public class ArgumentsController<T> where T : new()
 			?? throw new MissingControllerException(_rootType);
 	}
 
+	public ConsoleColor ApplicationNameColor { get; set; } = ConsoleColor.Cyan;
+
+	public ConsoleColor RequiredArgumentsHighlightColor { get; set; } = ConsoleColor.Magenta;
+
+	public ConsoleColor OptionalArgumentsHighlightColor { get; set; } = ConsoleColor.Green;
+
 	private string? Current
 	{
 		get
@@ -52,7 +59,9 @@ public class ArgumentsController<T> where T : new()
 		}
 	}
 
-	private bool IsHelp => Current == "-h" || Current == "--help";
+	private bool CurrentIsHelp => Current == "-h" || Current == "--help";
+
+	private bool HelpExist => _tokens.Any(t => t.Contains("-h") || t.Contains("--help"));
 
 	/// <summary>
 	/// Parses the command-line arguments into an instance of type <typeparamref name="T"/>.
@@ -64,7 +73,7 @@ public class ArgumentsController<T> where T : new()
 		var instance = new T();
 		_position = 0;
 
-		helpMessageDisplayed = ParseObject(instance);
+		helpMessageDisplayed = ParseObject(instance, ExtractBoundProperties());
 
 		return instance;
 	}
@@ -87,13 +96,11 @@ public class ArgumentsController<T> where T : new()
 	/// <summary>
 	/// Generates the usage text for the command-line arguments.
 	/// </summary>
-	/// <returns>A string representing the usage text.</returns>
-	public string GetUsageText() => ExtractBoundProperties().GetUsage(_controllerAttribute.AutoHelpArgument);
+	/// <returns>A <see cref="StringBuilder"/> containing the usage text.</returns>
+	public StringBuilder GetUsageText() => ExtractBoundProperties().GetUsage();
 
-	private bool ParseObject(object target)
+	private bool ParseObject(object target, IEnumerable<PropertyBinding> propertyBindings)
 	{
-		var propertyBindings = target.GetType().ExtractProperties();
-
 		foreach (var binding in propertyBindings)
 		{
 			if (Current == null)
@@ -101,7 +108,7 @@ public class ArgumentsController<T> where T : new()
 				ValidateRequirement(binding);
 				SetupBooleanDefault(target, binding);
 			}
-			else if (IsHelp && _controllerAttribute.AutoHelpArgument)
+			else if (CurrentIsHelp && _controllerAttribute.AutoHelpArgument)
 			{
 				DisplayUsage(propertyBindings);
 				return true;
@@ -136,15 +143,15 @@ public class ArgumentsController<T> where T : new()
 		}
 		else // Otherwise is a normal argument
 			ParseValueToArgument(target, binding);
-			
+
 		return false;
 	}
-	
+
 	private void ParseValueToArgument(object target, PropertyBinding binding)
 	{
 		var argument = Current!;
 		_position++;
-		
+
 		// If current is null, means that our 'argument' is the last one
 		if (Current == null)
 		{
@@ -194,25 +201,88 @@ public class ArgumentsController<T> where T : new()
 		binding.AssignValue(target, nestedInstance);
 
 		_position++;
-		return ParseObject(nestedInstance);
+		return ParseObject(nestedInstance, binding.Children);
 	}
 
-	private static void ValidateRequirement(PropertyBinding binding)
+	private void ValidateRequirement(PropertyBinding binding)
 	{
-		if (binding.ArgumentAttr.Required)
+		if (binding.ArgumentAttr.Required && !HelpExist)
 			throw new ArgumentException($"Argument '{binding.GetName()}' is required.");
 	}
-	
-	private static void CheckIfIsBooleanAndAssignIt(object target, PropertyBinding binding)
+
+	private void CheckIfIsBooleanAndAssignIt(object target, PropertyBinding binding)
 	{
 		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
 			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
+		else
+			ValidateRequirement(binding);
 	}
 
-	private static void DisplayUsage(IEnumerable<PropertyBinding> propertyBindings)
+	private void DisplayUsage(IEnumerable<PropertyBinding> propertyBindings)
 	{
-		foreach (var prop in propertyBindings)
-			Console.WriteLine(prop.Usage());
+		var requiredArguments = propertyBindings.Where(p => p.ArgumentAttr.Required);
+		var optionalArguments = propertyBindings.Where(p => !p.ArgumentAttr.Required);
+		var currentName = propertyBindings.Any(p => p.Parent != null)
+						? propertyBindings.First().Parent!.GetName()
+						: _controllerAttribute.Name;
+
+		Console.WriteLine();
+		Console.WriteLine("Usage:");
+		Console.ForegroundColor = ApplicationNameColor;
+		Console.Write($"  {currentName}");
+
+		if (requiredArguments.Any()) 
+		{
+			Console.ForegroundColor = RequiredArgumentsHighlightColor;
+			Console.Write(" <arguments>");
+		}
+
+		if (optionalArguments.Any())
+		{
+			Console.ForegroundColor = OptionalArgumentsHighlightColor;
+			Console.Write(" [options]");
+		}
+
+		Console.WriteLine("\n");
+
+		WriteRequiredUsage(requiredArguments);
+		WriteOptionalUsage(optionalArguments);
+
+		Console.ResetColor();
+		Console.WriteLine();
+		
+		if (_controllerAttribute.AutoHelpArgument)
+			Console.WriteLine("Use '-h, --help' with a command to see its details.");
+	}
+
+	private void WriteRequiredUsage(IEnumerable<PropertyBinding> required)
+	{
+		if (!required.Any())
+			return;
+
+		Console.ForegroundColor = RequiredArgumentsHighlightColor;
+		Console.WriteLine("  Required arguments:");
+		Console.ResetColor();
+		
+		foreach (var req in required)
+			Console.WriteLine($"    {req.Usage()}");
+			
+		Console.WriteLine();
+	}
+	
+	private void WriteOptionalUsage(IEnumerable<PropertyBinding> options)
+	{
+		if (!options.Any())
+			return;
+			
+		Console.ForegroundColor = OptionalArgumentsHighlightColor;
+		Console.WriteLine("  Available options:");
+		Console.ResetColor();
+		
+		foreach (var opt in options)
+			Console.WriteLine($"    {opt.Usage()}");
+		
+		Console.WriteLine();
 	}
 
 	private static void SetupBooleanDefault(object target, PropertyBinding binding)

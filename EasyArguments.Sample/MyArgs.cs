@@ -2,7 +2,7 @@
 
 namespace EasyArguments.Sample;
 
-[ArgumentsController]
+[ArgumentsController(Name = "EasyArguments.exe")]
 public class MyArgs
 {
 	[Argument("-n", "--name", "Specifies the user name", Required = true)]
