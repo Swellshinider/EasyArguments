@@ -1,6 +1,6 @@
 using EasyArguments.Attributes;
 
-namespace EasyArguments.Sample;
+namespace EasyArguments.Sample.Arguments;
 
 public class StartArgs
 {

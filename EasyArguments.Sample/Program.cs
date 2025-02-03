@@ -1,4 +1,6 @@
-﻿namespace EasyArguments.Sample;
+﻿using EasyArguments.Sample.Arguments;
+
+namespace EasyArguments.Sample;
 
 public static class Program
 {

@@ -13,7 +13,7 @@ public record PropertyBinding
 	/// The padding size used for formatting the usage string.
 	/// </summary>
 	public static readonly int PAD_SIZE = 50;
-	
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="PropertyBinding"/> class.
 	/// </summary>
@@ -73,10 +73,10 @@ public record PropertyBinding
 	public string Usage()
 	{
 		var builder = new StringBuilder();
-		
+
 		builder.Append(GetName().PadRight(PAD_SIZE));
 		builder.Append(ArgumentAttr.HelpMessage);
-		
+
 		return builder.ToString();
 	}
 
@@ -89,26 +89,26 @@ public record PropertyBinding
 	public string GetName()
 	{
 		var sb = new StringBuilder();
-		
+
 		if (!string.IsNullOrWhiteSpace(ArgumentAttr.ShortName))
 		{
 			sb.Append(ArgumentAttr.ShortName);
-			
+
 			if (!string.IsNullOrWhiteSpace(ArgumentAttr.LongName))
 				sb.Append(", ");
 		}
-		
+
 		if (!string.IsNullOrWhiteSpace(ArgumentAttr.LongName))
 			sb.Append(ArgumentAttr.LongName);
-			
+
 		return sb.ToString();
 	}
-	
+
 	internal string GetAvailableName()
 	{
 		if (!string.IsNullOrWhiteSpace(ArgumentAttr.ShortName))
 			return ArgumentAttr.ShortName;
-			
+
 		return ArgumentAttr.LongName ?? "";
 	}
 
@@ -124,17 +124,17 @@ public record PropertyBinding
 	{
 		var propType = Property.PropertyType;
 		var argAttr = ArgumentAttr;
-		
+
 		// If property is bool or bool?, no value means just set it to true and check if InvertBoolean is set.
 		if (propType.IsBoolean())
 		{
 			bool bValue;
-			
+
 			if (value is string str)
 				bValue = str.ToBoolean();
 			else if (value is bool bl)
 				bValue = bl;
-			else 
+			else
 				bValue = value == null;
 
 			if (argAttr.InvertBoolean)
@@ -145,7 +145,7 @@ public record PropertyBinding
 				Property.SetValue(target, (bool?)bValue);
 			else
 				Property.SetValue(target, bValue);
-			
+
 			Execute(target);
 			return;
 		}
@@ -155,7 +155,7 @@ public record PropertyBinding
 			throw new ArgumentException($"{GetName()} must receive a value");
 
 		// If it’s a string property, just set it directly:
-		if (propType == typeof(string)) 
+		if (propType == typeof(string))
 		{
 			Property.SetValue(target, value);
 			Execute(target);
@@ -181,8 +181,17 @@ public record PropertyBinding
 		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())
 		{
 			var currentValue = Property.GetValue(target);
-			var resultValue = execAttrib.MethodInfo.Invoke(target, [currentValue]);
-			
+			var methodInfo = execAttrib.MethodInfo;
+			var parametersCount = methodInfo.GetParameters().Length;
+			object? resultValue;
+
+			if (parametersCount == 0)
+				resultValue = methodInfo.Invoke(target, null);
+			else if (parametersCount == 1)
+				resultValue = methodInfo.Invoke(target, [currentValue]);
+			else
+				throw new TargetParameterCountException($"Execution of the method '{methodInfo.Name}' failed! Expected 0 or 1 parameter, but found {parametersCount} parameters.");
+
 			if (execAttrib.AssignResultToProperty)
 				AssignValue(target, resultValue);
 		}
