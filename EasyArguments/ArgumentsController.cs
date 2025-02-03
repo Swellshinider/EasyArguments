@@ -179,9 +179,24 @@ public class ArgumentsController<T> where T : new()
 			else
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
 		}
+		// If has a separator (--arg=value), we must parse into two parts
+		else if (argument.Contains(_controllerAttribute.Separator))
+		{
+			var parts = argument.Split(_controllerAttribute.Separator, 2);
+			binding.AssignValue(target, parts[1]);
+		}
 		// Check if the current is a separator
 		else if (Current.Contains(_controllerAttribute.Separator))
 		{
+			// Current can be the separator with the value (=value)
+			if (Current.Length > 1)
+			{
+				var value = Current.Split(_controllerAttribute.Separator)[1];
+				binding.AssignValue(target, value);
+				_position++;
+				return;
+			}
+			
 			// Advance one to get the value
 			_position++;
 
@@ -240,7 +255,7 @@ public class ArgumentsController<T> where T : new()
 		Console.ForegroundColor = ApplicationNameColor;
 		Console.Write($"  {currentName}");
 
-		if (requiredArguments.Any()) 
+		if (requiredArguments.Any())
 		{
 			Console.ForegroundColor = RequiredArgumentsHighlightColor;
 			Console.Write(" <arguments>");
@@ -259,7 +274,7 @@ public class ArgumentsController<T> where T : new()
 
 		Console.ResetColor();
 		Console.WriteLine();
-		
+
 		if (_controllerAttribute.AutoHelpArgument)
 			Console.WriteLine("Use '-h, --help' with a command to see its details.");
 	}
@@ -272,25 +287,25 @@ public class ArgumentsController<T> where T : new()
 		Console.ForegroundColor = RequiredArgumentsHighlightColor;
 		Console.WriteLine("  Required arguments:");
 		Console.ResetColor();
-		
+
 		foreach (var req in required)
 			Console.WriteLine($"    {req.Usage()}");
-			
+
 		Console.WriteLine();
 	}
-	
+
 	private void WriteOptionalUsage(IEnumerable<PropertyBinding> options)
 	{
 		if (!options.Any())
 			return;
-			
+
 		Console.ForegroundColor = OptionalArgumentsHighlightColor;
 		Console.WriteLine("  Available options:");
 		Console.ResetColor();
-		
+
 		foreach (var opt in options)
 			Console.WriteLine($"    {opt.Usage()}");
-		
+
 		Console.WriteLine();
 	}
 
