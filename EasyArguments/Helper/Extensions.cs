@@ -23,9 +23,20 @@ public static partial class Extensions
 	/// <summary>Returns true if <paramref name="t"/> is bool or nullable bool.</summary>
 	public static bool IsBoolean(this Type t) => t == typeof(bool) || t == typeof(bool?);
 
-	internal static List<string> Tokenize(this string input) => Tokenize(input, SeparateValuesRegex());
+	/// <summary>
+	/// Tokenizes the input string based on the default regular expression.
+	/// </summary>
+	/// <param name="input">The input string to tokenize.</param>
+	/// <returns>A list of tokens extracted from the input string.</returns>
+	public static List<string> Tokenize(this string input) => Tokenize(input, SeparateValuesRegex());
 
-	internal static List<string> Tokenize(this string input, Regex matchingRegex)
+	/// <summary>
+	/// Tokenizes the input string based on the provided regular expression.
+	/// </summary>
+	/// <param name="input">The input string to tokenize.</param>
+	/// <param name="matchingRegex">The regular expression used to match tokens.</param>
+	/// <returns>A list of tokens extracted from the input string.</returns>
+	public static List<string> Tokenize(this string input, Regex matchingRegex)
 	{
 		var tokens = new List<string>();
 		var matches = matchingRegex.Matches(input);

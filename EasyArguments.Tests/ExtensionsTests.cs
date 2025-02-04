@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using EasyArguments.Helper;
 
 namespace EasyArguments.Tests;
@@ -31,5 +32,14 @@ public class ExtensionsTests
 	public void IsBoolean_TypeCheck_ReturnsExpected(Type type, bool expected)
 	{
 		Assert.Equal(expected, type.IsBoolean());
+	}
+	
+	[Theory]
+	[MemberData(nameof(DataCreator.TokensData), MemberType = typeof(DataCreator))]
+	public void Tokenize_ValidInput_ReturnsExpectedTokens(string input, string[] expected)
+	{
+		var result = input.Tokenize();
+		Debug.WriteLine(input);
+		Assert.Equal(expected, result);
 	}
 }
