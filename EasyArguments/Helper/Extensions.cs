@@ -1,6 +1,5 @@
-using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Reflection;
 using EasyArguments.Attributes;
 
 namespace EasyArguments.Helper;
@@ -23,40 +22,79 @@ public static partial class Extensions
 	/// <summary>Returns true if <paramref name="t"/> is bool or nullable bool.</summary>
 	public static bool IsBoolean(this Type t) => t == typeof(bool) || t == typeof(bool?);
 
+	internal static bool IsNestedArgument(this Type type) => type.IsClass && type != typeof(string);
+	
 	/// <summary>
-	/// Tokenizes the input string based on the default regular expression.
+	/// Tokenizes the input string.
 	/// </summary>
 	/// <param name="input">The input string to tokenize.</param>
+	/// <param name="separator">The separator expected while tokenizing.</param>
 	/// <returns>A list of tokens extracted from the input string.</returns>
-	public static List<string> Tokenize(this string input) => Tokenize(input, SeparateValuesRegex());
-
-	/// <summary>
-	/// Tokenizes the input string based on the provided regular expression.
-	/// </summary>
-	/// <param name="input">The input string to tokenize.</param>
-	/// <param name="matchingRegex">The regular expression used to match tokens.</param>
-	/// <returns>A list of tokens extracted from the input string.</returns>
-	public static List<string> Tokenize(this string input, Regex matchingRegex)
+	public static List<string> Tokenize(this string input, char separator)
 	{
 		var tokens = new List<string>();
-		var matches = matchingRegex.Matches(input);
-
-		for (int i = 0; i < matches.Count; i++)
+		var token = new StringBuilder();
+		var inQuotes = false;
+		
+		for (int i = 0; i < input.Length; i++)
 		{
-			var match = matches[i];
-			var token = match.Value;
+			var currentChar = input[i];
 
-			if (token.StartsWith('\"') && token.EndsWith('\"'))
-				token = token[1..(token.Length - 1)];
-
-			if (!string.IsNullOrWhiteSpace(token))
-				tokens.Add(token);
+			if (HandleQuotes(ref inQuotes, currentChar))
+				continue;
+			
+			if (HandleWhitespace(tokens, token, inQuotes, currentChar))
+				continue;
+			
+			if (HandleSeparator(tokens, token, inQuotes, currentChar, separator))
+				continue;
+			
+			token.Append(currentChar);
 		}
-
+		
+		if (token.Length > 0)
+			tokens.Add(token.ToString());
+		
 		return tokens;
 	}
-	
-	internal static bool IsNestedArgument(this Type type) => type.IsClass && type != typeof(string);
+
+	private static bool HandleQuotes(ref bool inQuotes, char currentChar)
+	{
+		if (currentChar != '"')
+			return false;
+		
+		inQuotes = !inQuotes;
+		return true;
+	}
+
+	private static bool HandleWhitespace(List<string> tokens, StringBuilder token, bool inQuotes, char currentChar)
+	{
+		if (!char.IsWhiteSpace(currentChar) || inQuotes)
+			return false;
+			
+		if (token.Length > 0)
+		{
+			tokens.Add(token.ToString());
+			token.Clear();
+		}
+		
+		return true;
+	}
+
+	private static bool HandleSeparator(List<string> tokens, StringBuilder token, bool inQuotes, char currentChar, char separator)
+	{
+		if (currentChar != separator || inQuotes)
+			return false;
+			
+		if (token.Length > 0)
+		{
+			tokens.Add(token.ToString());
+			token.Clear();
+		}
+		
+		tokens.Add(currentChar.ToString());
+		return true;
+	}
 	
 	internal static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
 	{
@@ -126,10 +164,4 @@ public static partial class Extensions
 		
 		builder.AppendLine();
 	}
-
-	/// <summary>
-	/// Reference: https://regex101.com/r/eUTGpf/2
-	/// </summary>
-	[GeneratedRegex(@"(?:[/-]+?:[/-]+(?<key>\S+?))|(?:""[/-]+(?<key>.+?)"")|(?:'[/-]+(?<key>.+?)')|(?:""(?<value>.+?)"")|(?:'(?<value>.+?)')|(?<value>\S+)", RegexOptions.Compiled)]
-	private static partial Regex SeparateValuesRegex();
 }
