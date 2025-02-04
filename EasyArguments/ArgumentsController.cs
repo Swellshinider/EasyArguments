@@ -26,9 +26,10 @@ public class ArgumentsController<T> where T : new()
 	public ArgumentsController(string[] args)
 	{
 		_rootType = typeof(T);
-		_tokens = string.Join(' ', args).Tokenize();
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
+			
+		_tokens = string.Join(' ', args).Tokenize(_controllerAttribute.Separator);
 		_rootProperties = _rootType.ExtractProperties();
 	}
 
@@ -39,9 +40,10 @@ public class ArgumentsController<T> where T : new()
 	public ArgumentsController(string argLine)
 	{
 		_rootType = typeof(T);
-		_tokens = argLine.Tokenize();
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
+			
+		_tokens = argLine.Tokenize(_controllerAttribute.Separator);
 		_rootProperties = _rootType.ExtractProperties();
 	}
 

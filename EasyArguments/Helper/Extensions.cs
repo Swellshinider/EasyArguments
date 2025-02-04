@@ -1,6 +1,5 @@
-using System.Reflection;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Reflection;
 using EasyArguments.Attributes;
 
 namespace EasyArguments.Helper;
@@ -23,31 +22,49 @@ public static partial class Extensions
 	/// <summary>Returns true if <paramref name="t"/> is bool or nullable bool.</summary>
 	public static bool IsBoolean(this Type t) => t == typeof(bool) || t == typeof(bool?);
 
-	internal static List<string> Tokenize(this string input) => Tokenize(input, SeparateValuesRegex());
-
-	internal static List<string> Tokenize(this string input, Regex matchingRegex)
-	{
-		var tokens = new List<string>();
-		var matches = matchingRegex.Matches(input);
-
-		for (int i = 0; i < matches.Count; i++)
-		{
-			var match = matches[i];
-			var token = match.Value;
-
-			if (token.StartsWith('\"') && token.EndsWith('\"'))
-				token = token[1..(token.Length - 1)];
-
-			if (!string.IsNullOrWhiteSpace(token))
-				tokens.Add(token);
-		}
-
-		return tokens;
-	}
-	
 	internal static bool IsNestedArgument(this Type type) => type.IsClass && type != typeof(string);
 	
-	internal static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
+	/// <summary>
+	/// Tokenizes the input string.
+	/// </summary>
+	/// <param name="input">The input string to tokenize.</param>
+	/// <param name="separator">The separator expected while tokenizing.</param>
+	/// <returns>A list of tokens extracted from the input string.</returns>
+	public static List<string> Tokenize(this string input, char separator)
+	{
+		var tokens = new List<string>();
+		var token = new StringBuilder();
+		var inQuotes = false;
+		
+		for (int i = 0; i < input.Length; i++)
+		{
+			var currentChar = input[i];
+
+			if (HandleQuotes(ref inQuotes, currentChar))
+				continue;
+			
+			if (HandleWhitespace(tokens, token, inQuotes, currentChar))
+				continue;
+			
+			if (HandleSeparator(tokens, token, inQuotes, currentChar, separator))
+				continue;
+			
+			token.Append(currentChar);
+		}
+		
+		if (token.Length > 0)
+			tokens.Add(token.ToString());
+		
+		return tokens;
+	}
+
+	/// <summary>
+	/// Extracts properties from the specified target type that are decorated with the ArgumentAttribute.
+	/// </summary>
+	/// <param name="targetType">The type from which to extract properties.</param>
+	/// <param name="parent">The parent property binding, if any.</param>
+	/// <returns>An enumerable of PropertyBinding objects representing the extracted properties.</returns>
+	public static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
 	{
 		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
 		{
@@ -70,6 +87,44 @@ public static partial class Extensions
 
 			yield return boundProperty;
 		}
+	}
+
+	private static bool HandleQuotes(ref bool inQuotes, char currentChar)
+	{
+		if (currentChar != '"')
+			return false;
+		
+		inQuotes = !inQuotes;
+		return true;
+	}
+
+	private static bool HandleWhitespace(List<string> tokens, StringBuilder token, bool inQuotes, char currentChar)
+	{
+		if (!char.IsWhiteSpace(currentChar) || inQuotes)
+			return false;
+			
+		if (token.Length > 0)
+		{
+			tokens.Add(token.ToString());
+			token.Clear();
+		}
+		
+		return true;
+	}
+
+	private static bool HandleSeparator(List<string> tokens, StringBuilder token, bool inQuotes, char currentChar, char separator)
+	{
+		if (currentChar != separator || inQuotes)
+			return false;
+			
+		if (token.Length > 0)
+		{
+			tokens.Add(token.ToString());
+			token.Clear();
+		}
+		
+		tokens.Add(currentChar.ToString());
+		return true;
 	}
 	
 	internal static StringBuilder GetUsage(this IEnumerable<PropertyBinding> propertyBindings)
@@ -115,10 +170,4 @@ public static partial class Extensions
 		
 		builder.AppendLine();
 	}
-
-	/// <summary>
-	/// Reference: https://regex101.com/r/eUTGpf/2
-	/// </summary>
-	[GeneratedRegex(@"(?:[/-]+?:[/-]+(?<key>\S+?))|(?:""[/-]+(?<key>.+?)"")|(?:'[/-]+(?<key>.+?)')|(?:""(?<value>.+?)"")|(?:'(?<value>.+?)')|(?<value>\S+)", RegexOptions.Compiled)]
-	private static partial Regex SeparateValuesRegex();
 }
