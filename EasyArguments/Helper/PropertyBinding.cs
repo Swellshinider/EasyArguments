@@ -46,12 +46,17 @@ public record PropertyBinding
 	/// <summary>
 	/// Gets the list of child property bindings.
 	/// </summary>
-	public List<PropertyBinding> Children { get; }
+	public IEnumerable<PropertyBinding> Children { get; internal set; }
+
+	/// <summary>
+	/// Gets a value indicating whether the property is waiting for lazy execution.
+	/// </summary>
+	public bool WaitingForLazyExecution { get; private set; } = false;
 
 	/// <summary>
 	/// Gets a value indicating whether this property binding has child bindings.
 	/// </summary>
-	public bool IsParent => Children.Count > 0;
+	public bool IsParent => Children.Any();
 
 	/// <summary>
 	/// Returns true if <paramref name="arg"/> matches either this property's
@@ -176,7 +181,28 @@ public record PropertyBinding
 		}
 	}
 
-	private void Execute(object target)
+	/// <summary>
+	/// Assigns a nested value to the property of the target object, converting the value if necessary.
+	/// </summary>
+	/// <param name="target">The object whose property value is to be set.</param>
+	/// <param name="value">The value to assign to the property.</param>
+	public void AssignNested(object target, object? value) 
+	{
+		var propType = Property.PropertyType;
+		
+		try
+		{
+			var converterValue = Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
+			Property.SetValue(target, converterValue);
+			WaitingForLazyExecution = true;
+		}
+		catch (Exception ex)
+		{
+			throw new ArgumentException($"Failed to convert value '{value}' to type {propType.Name}: {ex.Message}", ex);
+		}
+	}
+
+	internal void Execute(object target)
 	{
 		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())
 		{
@@ -195,5 +221,10 @@ public record PropertyBinding
 			if (execAttrib.AssignResultToProperty)
 				AssignValue(target, resultValue);
 		}
+		
+		WaitingForLazyExecution = false;
 	}
+
+	/// <inheritdoc/>
+	public override string ToString() => GetName();
 }

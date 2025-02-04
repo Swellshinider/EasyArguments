@@ -15,6 +15,7 @@ public class ArgumentsController<T> where T : new()
 	private readonly Type _rootType;
 	private readonly List<string> _tokens;
 	private readonly ArgumentsControllerAttribute _controllerAttribute;
+	private readonly IEnumerable<PropertyBinding> _rootProperties;
 
 	private int _position = 0;
 
@@ -28,6 +29,7 @@ public class ArgumentsController<T> where T : new()
 		_tokens = string.Join(' ', args).Tokenize();
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
+		_rootProperties = _rootType.ExtractProperties();
 	}
 
 	/// <summary>
@@ -40,6 +42,7 @@ public class ArgumentsController<T> where T : new()
 		_tokens = argLine.Tokenize();
 		_controllerAttribute = _rootType.GetCustomAttribute<ArgumentsControllerAttribute>()
 			?? throw new MissingControllerException(_rootType);
+		_rootProperties = _rootType.ExtractProperties();
 	}
 
 	/// <summary>
@@ -82,7 +85,7 @@ public class ArgumentsController<T> where T : new()
 		var instance = new T();
 		_position = 0;
 
-		helpMessageDisplayed = ParseObject(instance, ExtractBoundProperties());
+		helpMessageDisplayed = ParseObject(instance, _rootProperties);
 
 		return instance;
 	}
@@ -106,7 +109,7 @@ public class ArgumentsController<T> where T : new()
 	/// Generates the usage text for the command-line arguments.
 	/// </summary>
 	/// <returns>A <see cref="StringBuilder"/> containing the usage text.</returns>
-	public StringBuilder GetUsageText() => ExtractBoundProperties().GetUsage();
+	public StringBuilder GetUsageText() => _rootProperties.GetUsage();
 
 	private bool ParseObject(object target, IEnumerable<PropertyBinding> propertyBindings)
 	{
@@ -222,10 +225,15 @@ public class ArgumentsController<T> where T : new()
 	{
 		var nestedInstance = Activator.CreateInstance(binding.Property.PropertyType)!;
 
-		binding.AssignValue(target, nestedInstance);
-
+		binding.AssignNested(target, nestedInstance);
 		_position++;
-		return ParseObject(nestedInstance, binding.Children);
+		
+		var helpDisplayed = ParseObject(nestedInstance, binding.Children);
+		
+		if (binding.WaitingForLazyExecution)
+			binding.Execute(target);
+			
+		return helpDisplayed;
 	}
 
 	private void ValidateRequirement(PropertyBinding binding)
