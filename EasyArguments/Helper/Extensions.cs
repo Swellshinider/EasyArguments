@@ -58,6 +58,37 @@ public static partial class Extensions
 		return tokens;
 	}
 
+	/// <summary>
+	/// Extracts properties from the specified target type that are decorated with the ArgumentAttribute.
+	/// </summary>
+	/// <param name="targetType">The type from which to extract properties.</param>
+	/// <param name="parent">The parent property binding, if any.</param>
+	/// <returns>An enumerable of PropertyBinding objects representing the extracted properties.</returns>
+	public static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
+	{
+		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+		{
+			// Get the attribute from the property
+			var argAttr = prop.GetCustomAttribute<ArgumentAttribute>();
+
+			// Ignore if does not contain the attribute
+			if (argAttr == null)
+				continue;
+
+			// If both ShortName and LongName are null, set LongName to property name with "--" prefix.
+			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
+				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
+
+			var boundProperty = new PropertyBinding(prop, argAttr, parent);
+
+			// If this is a class and not string, we consider it as nested arguments
+			if (prop.PropertyType.IsNestedArgument())
+				boundProperty.Children = ExtractProperties(boundProperty.Property.PropertyType, boundProperty);
+
+			yield return boundProperty;
+		}
+	}
+
 	private static bool HandleQuotes(ref bool inQuotes, char currentChar)
 	{
 		if (currentChar != '"')
@@ -94,31 +125,6 @@ public static partial class Extensions
 		
 		tokens.Add(currentChar.ToString());
 		return true;
-	}
-	
-	internal static IEnumerable<PropertyBinding> ExtractProperties(this Type targetType, PropertyBinding? parent = null)
-	{
-		foreach (var prop in targetType.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
-		{
-			// Get the attribute from the property
-			var argAttr = prop.GetCustomAttribute<ArgumentAttribute>();
-
-			// Ignore if does not contain the attribute
-			if (argAttr == null)
-				continue;
-
-			// If both ShortName and LongName are null, set LongName to property name with "--" prefix.
-			if (string.IsNullOrWhiteSpace(argAttr.ShortName) && string.IsNullOrWhiteSpace(argAttr.LongName))
-				argAttr.LongName = "--" + prop.Name.ToLowerInvariant();
-
-			var boundProperty = new PropertyBinding(prop, argAttr, parent);
-
-			// If this is a class and not string, we consider it as nested arguments
-			if (prop.PropertyType.IsNestedArgument())
-				boundProperty.Children = ExtractProperties(boundProperty.Property.PropertyType, boundProperty);
-
-			yield return boundProperty;
-		}
 	}
 	
 	internal static StringBuilder GetUsage(this IEnumerable<PropertyBinding> propertyBindings)

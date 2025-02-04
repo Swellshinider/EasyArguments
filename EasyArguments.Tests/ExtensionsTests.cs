@@ -6,13 +6,17 @@ namespace EasyArguments.Tests;
 public class ExtensionsTests
 {
 	[Theory]
-	[InlineData("true", true)]
-	[InlineData("TRUE", true)]
-	[InlineData("false", false)]
-	[InlineData("FALSE", false)]
-	public void ToBoolean_ValidValues_ReturnsExpected(string input, bool expected)
+	[MemberData(nameof(DataCreator.ToBooleanData), MemberType = typeof(DataCreator))]
+	public void ToBoolean_Extension_Test(string input, bool expected, bool shouldThrow)
 	{
-		Assert.Equal(expected, input.ToBoolean());
+		if (shouldThrow)
+		{
+			Assert.Throws<ArgumentException>(() => input.ToBoolean());
+		}
+		else
+		{
+			Assert.Equal(expected, input.ToBoolean());
+		}
 	}
 
 	[Theory]

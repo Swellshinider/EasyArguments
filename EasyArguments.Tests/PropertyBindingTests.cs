@@ -1,6 +1,7 @@
 using System.Reflection;
 using EasyArguments.Attributes;
 using EasyArguments.Helper;
+using static EasyArguments.Tests.DataCreator;
 
 namespace EasyArguments.Tests;
 
@@ -19,6 +20,22 @@ public class PropertyBindingTests
 		
 		[Argument(null, "--bool", "Test argument")]
 		public bool NormalBool { get; set; }
+	}
+	
+	[Theory]
+	[InlineData("-x", true)]
+	[InlineData("--execute", true)]
+	[InlineData("-x=value", true)]
+	[InlineData("--execute=value", true)]
+	[InlineData("--other", false)]
+	public void PropertyBinding_Matches_Test(string testArg, bool expected)
+	{
+		var prop = typeof(TestMatchesClass).GetProperty("Arg");
+		Assert.NotNull(prop);
+		var attr = prop.GetCustomAttribute<ArgumentAttribute>();
+		Assert.NotNull(attr);
+		var binding = new PropertyBinding(prop, attr);
+		Assert.Equal(expected, binding.Matches(testArg, '='));
 	}
 
 	[Fact]
