@@ -16,6 +16,7 @@ public class MyArgs
 	public bool GuiEnabled { get; set; }
 
 	[Argument(null, "start", "Start command options")]
+	[Executor(typeof(ValidateAndExecute), "StartArgumentInvoked")]
 	public StartArgs? Start { get; set; }
 
 	public override string ToString()

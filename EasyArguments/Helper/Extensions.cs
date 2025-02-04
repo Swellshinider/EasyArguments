@@ -66,7 +66,7 @@ public static partial class Extensions
 
 			// If this is a class and not string, we consider it as nested arguments
 			if (prop.PropertyType.IsNestedArgument())
-				boundProperty.Children.AddRange(ExtractProperties(boundProperty.Property.PropertyType, boundProperty));
+				boundProperty.Children = ExtractProperties(boundProperty.Property.PropertyType, boundProperty);
 
 			yield return boundProperty;
 		}
