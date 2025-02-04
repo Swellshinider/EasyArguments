@@ -36,9 +36,9 @@ public class ExtensionsTests
 	
 	[Theory]
 	[MemberData(nameof(DataCreator.TokensData), MemberType = typeof(DataCreator))]
-	public void Tokenize_ValidInput_ReturnsExpectedTokens(string input, string[] expected)
+	public void Tokenize_ValidInput_ReturnsExpectedTokens(string input, char separator, string[] expected)
 	{
-		var result = input.Tokenize();
+		var result = input.Tokenize(separator);
 		Debug.WriteLine(input);
 		Assert.Equal(expected, result);
 	}
