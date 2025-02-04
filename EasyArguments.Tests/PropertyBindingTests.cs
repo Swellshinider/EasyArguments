@@ -16,6 +16,9 @@ public class PropertyBindingTests
 		
 		[Argument(null, "--ivb", "Test argument", InvertBoolean = true)]
 		public bool InvertedBool { get; set; }
+		
+		[Argument(null, "--bool", "Test argument")]
+		public bool NormalBool { get; set; }
 	}
 
 	[Fact]
@@ -65,6 +68,18 @@ public class PropertyBindingTests
 		binding.AssignValue(testObj, null);
 		Assert.False(testObj.InvertedBool);
 	}
+	
+	[Fact]
+	public void TestAssignValueBool()
+	{
+		var testObj = new TestClass();
+		var prop = typeof(TestClass).GetProperty(nameof(TestClass.NormalBool))!;
+		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
+		var binding = new PropertyBinding(prop, attr);
+
+		binding.AssignValue(testObj, null);
+		Assert.True(testObj.NormalBool);
+	}
 
 	[Fact]
 	public void TestUsage()
@@ -86,15 +101,5 @@ public class PropertyBindingTests
 		var binding = new PropertyBinding(prop, attr);
 
 		Assert.Equal("-a, --alpha", binding.ToString());
-	}
-
-	[Fact]
-	public void TestGetAvailableName()
-	{
-		var prop = typeof(TestClass).GetProperty(nameof(TestClass.TestProp))!;
-		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
-		var binding = new PropertyBinding(prop, attr);
-		
-		Assert.Equal("-a", binding.ToString());
 	}
 }

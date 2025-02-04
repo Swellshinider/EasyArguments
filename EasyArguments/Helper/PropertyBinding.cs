@@ -89,7 +89,7 @@ public record PropertyBinding
 	/// Returns a nice formatting of <see cref="ArgumentAttribute.ShortName"/> and <see cref="ArgumentAttribute.LongName"/>.
 	/// </summary>
 	/// <remarks> 
-	/// Example: <c>[-v, --version]</c> if optional, or <c>-v, --version</c> if required.
+	/// Example: <c>-v, --version</c>, <c>-v</c> or <c>--version</c>
 	/// </remarks>
 	public string GetName()
 	{
