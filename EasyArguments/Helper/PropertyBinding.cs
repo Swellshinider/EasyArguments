@@ -122,10 +122,11 @@ public record PropertyBinding
 	/// </summary>
 	/// <param name="target">The object whose property value is to be set.</param>
 	/// <param name="value">The value to assign to the property. Can be null for boolean properties.</param>
+	/// <param name="isValueRebinding">Indicates if the value is being rebound.</param>
 	/// <exception cref="ArgumentException">
 	/// Thrown if the property is not a boolean and the value is null, or if the value cannot be converted to the property type.
 	/// </exception>
-	public void AssignValue(object target, object? value)
+	public void AssignValue(object target, object? value, bool isValueRebinding = false)
 	{
 		var propType = Property.PropertyType;
 		var argAttr = ArgumentAttr;
@@ -163,7 +164,7 @@ public record PropertyBinding
 		if (propType == typeof(string))
 		{
 			Property.SetValue(target, value);
-			Execute(target);
+			Execute(target, isValueRebinding);
 			return;
 		}
 
@@ -173,7 +174,7 @@ public record PropertyBinding
 		{
 			var converterValue = Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
 			Property.SetValue(target, converterValue);
-			Execute(target);
+			Execute(target, isValueRebinding);
 		}
 		catch (Exception ex)
 		{
@@ -202,8 +203,11 @@ public record PropertyBinding
 		}
 	}
 
-	internal void Execute(object target)
+	internal void Execute(object target, bool isValueRebinding = false)
 	{
+		if (isValueRebinding)
+			return;
+		
 		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())
 		{
 			var currentValue = Property.GetValue(target);
@@ -219,7 +223,7 @@ public record PropertyBinding
 				throw new TargetParameterCountException($"Execution of the method '{methodInfo.Name}' failed! Expected 0 or 1 parameter, but found {parametersCount} parameters.");
 
 			if (execAttrib.AssignResultToProperty)
-				AssignValue(target, resultValue);
+				AssignValue(target, resultValue, true);
 		}
 		
 		WaitingForLazyExecution = false;
