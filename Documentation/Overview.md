@@ -7,6 +7,11 @@
 - [Basic Usage Example](../README.md#basic-usage-example)
 - [Installation Guide](../README.md#installation)
 
+### Advanced examples
+
+- **[Nested Arguments](./Examples/NestedArguments.md)** Nested arguments allow you to structure your command-line options into hierarchical groups.
+- **[Executor](./Examples/ArgumentsExecution.md)** The Arguments Execution process in **EasyArguments** refers to the mechanism that automatically invokes executor methods after a property’s value has been assigned. 
+
 ### Core Components
 
 1. **[ArgumentsControllerAttribute](01-ArgumentsControllerAttribute.md)** Attribute responsible to configure your class arguments.
