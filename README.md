@@ -13,20 +13,21 @@ EasyArguments is a lightweight .NET library that simplifies the process of parsi
 ## Table of Contents
 
 - [EasyArguments](#easyarguments)
-  - [Table of Contents](#table-of-contents)
-  - [About the project](#about-the-project)
-    - [Key Features ✨](#key-features-)
-    - [Why EasyArguments? 🚀](#why-easyarguments-)
-  - [Installation 👌](#installation-)
-  - [Basic Usage Example 📝](#basic-usage-example-)
-    - [1) Setup an argument class](#1-setup-an-argument-class)
-    - [2) Create an instance of ArgumentsController](#2-create-an-instance-of-argumentscontroller)
-  - [Contribution ❤️](#contribution-️)
-  - [License 🪪](#license-)
+	- [Table of Contents](#table-of-contents)
+	- [About the project](#about-the-project)
+		- [Key Features ✨](#key-features-)
+		- [Why EasyArguments? 🚀](#why-easyarguments-)
+	- [Installation 👌](#installation-)
+	- [Quick Test](#quick-test)
+	- [Usage Example 📝](#usage-example-)
+		- [1) Setup an argument class](#1-setup-an-argument-class)
+		- [2) Create an instance of ArgumentsController](#2-create-an-instance-of-argumentscontroller)
+	- [Contribution ❤️](#contribution-️)
+	- [License 🪪](#license-)
 
 
 ## About the project
-    
+		
 Parsing command-line arguments in .NET applications can often be cumbersome and error-prone, requiring repetitive code to handle different argument formats, validations, and help documentation. **EasyArguments** streamlines this process by providing a simple, declarative way to map command-line arguments to strongly-typed objects with minimal boilerplate code.
 
 ### Key Features ✨
@@ -69,7 +70,17 @@ Or via nuget package manager on Visual Studio:
 
 ![NugetPackageInstallation](./Documentation/Images/nuget_packagemanager_visualstudio.png)
 
-## Basic Usage Example 📝
+## Quick Test
+
+To quickly test the library, clone this repository and run the [Sample Project](./EasyArguments.Sample/).
+
+```bash
+git clone https://github.com/Swellshinider/EasyArguments.git
+cd EasyArguments
+./run.ps1
+```
+
+## Usage Example 📝
 
 This is a basic example. For a comprehensive guide, check out the [Full Documentation](./Documentation/Overview.md) 📚. 
 
@@ -85,14 +96,14 @@ using System;
 [ArgumentsController(Name = "you_app.exe")]
 public class MyArgs
 {
-    [Argument("-n", "--name", "Specifies the user name", Required = true)]
-    public string? Name { get; set; }
+		[Argument("-n", "--name", "Specifies the user name", Required = true)]
+		public string? Name { get; set; }
 
-    [Argument("-v", "--verbose", "Enable verbose output", Required = false)]
-    public bool? Verbose { get; set; }
+		[Argument("-v", "--verbose", "Enable verbose output", Required = false)]
+		public bool? Verbose { get; set; }
 
-    [Argument(null, "--no-gui", "Disable the GUI", InvertBoolean = true)]
-    public bool GuiEnabled { get; set; }
+		[Argument(null, "--no-gui", "Disable the GUI", InvertBoolean = true)]
+		public bool GuiEnabled { get; set; }
 }
 ```
 
@@ -103,26 +114,26 @@ using EasyArguments;
 
 public class Program
 {
-    static void Main(string[] args)
-    {
-        try
-        {
-            // Instantiate a controller for your argument class
-            var controller = new ArgumentsController<MyArgs>(args);
+		static void Main(string[] args)
+		{
+				try
+				{
+						// Instantiate a controller for your argument class
+						var controller = new ArgumentsController<MyArgs>(args);
 
-            // Parse the given args
-            MyArgs parsed = controller.Parse();
+						// Parse the given args
+						MyArgs parsed = controller.Parse();
 
-            // Now you can use properties as you want:
-            Console.WriteLine($"Name: {parsed.Name}");
-            Console.WriteLine($"Verbose: {parsed.Verbose}");
-            Console.WriteLine($"GUI enabled: {parsed.GuiEnabled}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-    }
+						// Now you can use properties as you want:
+						Console.WriteLine($"Name: {parsed.Name}");
+						Console.WriteLine($"Verbose: {parsed.Verbose}");
+						Console.WriteLine($"GUI enabled: {parsed.GuiEnabled}");
+				}
+				catch (Exception ex)
+				{
+						Console.WriteLine(ex.Message);
+				}
+		}
 }
 ```
 
