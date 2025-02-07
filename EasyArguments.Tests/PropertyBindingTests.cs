@@ -57,7 +57,7 @@ public class PropertyBindingTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 
-		binding.AssignValue(testObj, "testValue");
+		binding.AssignValue(testObj, "testValue", false);
 		Assert.Equal("testValue", testObj.TestProp);
 	}
 
@@ -70,7 +70,7 @@ public class PropertyBindingTests
 		var binding = new PropertyBinding(prop, attr);
 		
 		Assert.True(binding.ArgumentAttr.Required);
-		binding.AssignValue(testObj, "requiredValue");
+		binding.AssignValue(testObj, "requiredValue", false);
 		Assert.Equal("requiredValue", testObj.Requirement);
 	}
 
@@ -82,7 +82,7 @@ public class PropertyBindingTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 
-		binding.AssignValue(testObj, null);
+		binding.AssignValue(testObj, null, false);
 		Assert.False(testObj.InvertedBool);
 	}
 	
@@ -94,7 +94,7 @@ public class PropertyBindingTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 
-		binding.AssignValue(testObj, null);
+		binding.AssignValue(testObj, null, false);
 		Assert.True(testObj.NormalBool);
 	}
 
