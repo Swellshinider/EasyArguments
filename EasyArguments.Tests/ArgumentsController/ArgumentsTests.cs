@@ -49,7 +49,7 @@ public class ArgumentsTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>();
 		Assert.NotNull(attr);
 		var binding = new PropertyBinding(prop, attr);
-		binding.AssignValue(instance, input);
+		binding.AssignValue(instance, input, false);
 		var actual = prop.GetValue(instance);
 		Assert.Equal(expected, actual);
 	}
@@ -63,7 +63,7 @@ public class ArgumentsTests
 		var attr = prop.GetCustomAttribute<ArgumentAttribute>()!;
 		var binding = new PropertyBinding(prop, attr);
 		// Passing a non-numeric string to an int property should throw.
-		Assert.Throws<ArgumentException>(() => binding.AssignValue(instance, "NaN"));
+		Assert.Throws<ArgumentException>(() => binding.AssignValue(instance, "NaN", false));
 	}
 
 	[Fact]
