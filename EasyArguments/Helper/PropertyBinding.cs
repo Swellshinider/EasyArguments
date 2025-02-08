@@ -122,11 +122,11 @@ public record PropertyBinding
 	/// </summary>
 	/// <param name="target">The object whose property value is to be set.</param>
 	/// <param name="value">The value to assign to the property. Can be null for boolean properties.</param>
-	/// <param name="isValueRebinding">Indicates if the value is being rebound.</param>
+	/// <param name="avoidExecution">Indicates if the execution will be bypassed.</param>
 	/// <exception cref="ArgumentException">
 	/// Thrown if the property is not a boolean and the value is null, or if the value cannot be converted to the property type.
 	/// </exception>
-	public void AssignValue(object target, object? value, bool isValueRebinding = false)
+	public void AssignValue(object target, object? value, bool avoidExecution)
 	{
 		var propType = Property.PropertyType;
 		var argAttr = ArgumentAttr;
@@ -152,7 +152,7 @@ public record PropertyBinding
 			else
 				Property.SetValue(target, bValue);
 
-			Execute(target);
+			Execute(target, avoidExecution);
 			return;
 		}
 
@@ -164,7 +164,7 @@ public record PropertyBinding
 		if (propType == typeof(string))
 		{
 			Property.SetValue(target, value);
-			Execute(target, isValueRebinding);
+			Execute(target, avoidExecution);
 			return;
 		}
 
@@ -174,7 +174,7 @@ public record PropertyBinding
 		{
 			var converterValue = Convert.ChangeType(value, Nullable.GetUnderlyingType(propType) ?? propType);
 			Property.SetValue(target, converterValue);
-			Execute(target, isValueRebinding);
+			Execute(target, avoidExecution);
 		}
 		catch (Exception ex)
 		{
@@ -203,9 +203,9 @@ public record PropertyBinding
 		}
 	}
 
-	internal void Execute(object target, bool isValueRebinding = false)
+	internal void Execute(object target, bool avoidExecution)
 	{
-		if (isValueRebinding)
+		if (avoidExecution)
 			return;
 		
 		foreach (var execAttrib in Property.GetCustomAttributes<ExecutorAttribute>())

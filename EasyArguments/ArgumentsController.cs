@@ -138,7 +138,7 @@ public class ArgumentsController<T> where T : new()
 			}
 			else
 			{
-				binding.AssignValue(target, Current);
+				binding.AssignValue(target, Current, HelpExist);
 				_position++;
 			}
 		}
@@ -173,12 +173,12 @@ public class ArgumentsController<T> where T : new()
 			if (argument.Contains(_controllerAttribute.Separator))
 			{
 				var parts = argument.Split(_controllerAttribute.Separator, 2);
-				binding.AssignValue(target, parts[1]);
+				binding.AssignValue(target, parts[1], HelpExist);
 			}
 
 			// No separator (--verbose), should be a boolean flag
 			else if (binding.Property.PropertyType.IsBoolean())
-				binding.AssignValue(target, true);
+				binding.AssignValue(target, true, HelpExist);
 
 			// If no separator and it's not a boolean, throw error
 			else
@@ -188,7 +188,7 @@ public class ArgumentsController<T> where T : new()
 		else if (argument.Contains(_controllerAttribute.Separator))
 		{
 			var parts = argument.Split(_controllerAttribute.Separator, 2);
-			binding.AssignValue(target, parts[1]);
+			binding.AssignValue(target, parts[1], HelpExist);
 		}
 		// Check if the current is a separator
 		else if (Current.Contains(_controllerAttribute.Separator))
@@ -197,7 +197,7 @@ public class ArgumentsController<T> where T : new()
 			if (Current.Length > 1)
 			{
 				var value = Current.Split(_controllerAttribute.Separator)[1];
-				binding.AssignValue(target, value);
+				binding.AssignValue(target, value, HelpExist);
 				_position++;
 				return;
 			}
@@ -208,17 +208,17 @@ public class ArgumentsController<T> where T : new()
 			if (Current == null)
 				throw new ArgumentException($"No value found for provided argument '{argument}'");
 
-			binding.AssignValue(target, Current);
+			binding.AssignValue(target, Current, HelpExist);
 			_position++;
 		}
 		// If matches with an argument, then is missing a value 
 		else if (binding.Matches(Current, _controllerAttribute.Separator))
 			throw new ArgumentException($"No value found for provided argument '{argument}'");
 		else if (binding.Property.PropertyType.IsBoolean())
-			binding.AssignValue(target, true);
+			binding.AssignValue(target, true, HelpExist);
 		else
 		{
-			binding.AssignValue(target, Current);
+			binding.AssignValue(target, Current, HelpExist);
 			_position++;
 		}
 	}
@@ -233,7 +233,7 @@ public class ArgumentsController<T> where T : new()
 		var helpDisplayed = ParseObject(nestedInstance, binding.Children);
 		
 		if (binding.WaitingForLazyExecution)
-			binding.Execute(target);
+			binding.Execute(target, HelpExist);
 			
 		return helpDisplayed;
 	}
@@ -247,7 +247,7 @@ public class ArgumentsController<T> where T : new()
 	private void CheckIfIsBooleanAndAssignIt(object target, PropertyBinding binding)
 	{
 		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
-			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean, HelpExist);
 		else
 			ValidateRequirement(binding);
 	}
@@ -319,10 +319,10 @@ public class ArgumentsController<T> where T : new()
 		Console.WriteLine();
 	}
 
-	private static void SetupBooleanDefault(object target, PropertyBinding binding)
+	private void SetupBooleanDefault(object target, PropertyBinding binding)
 	{
 		// If no argument is provided and the property is a boolean with inversion, set its default value
 		if (binding.Property.PropertyType == typeof(bool) && binding.ArgumentAttr.InvertBoolean)
-			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean);
+			binding.AssignValue(target, !binding.ArgumentAttr.InvertBoolean, HelpExist);
 	}
 }

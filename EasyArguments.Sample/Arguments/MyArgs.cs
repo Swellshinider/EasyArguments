@@ -10,7 +10,7 @@ public class MyArgs
 
 	[Argument("-v", "--version", "Display application version", Required = false)]
 	[Executor(typeof(ValidateAndExecute), "DisplayVersion")]
-	public bool Verbose { get; set; }
+	public bool Version { get; set; }
 
 	[Argument(null, "--no-gui", "Disable the GUI", InvertBoolean = true)]
 	public bool GuiEnabled { get; set; }
@@ -21,6 +21,6 @@ public class MyArgs
 
 	public override string ToString()
 	{
-		return $"Name: {Name}\nVerbose: {Verbose}\nGuiEnabled: {GuiEnabled} {(Start != null ? $"\n\nStart: [{Start}\n]" : "")}";
+		return $"Name: {Name}\nVersion: {Version}\nGuiEnabled: {GuiEnabled} {(Start != null ? $"\n\nStart: [{Start}\n]" : "")}";
 	}
 }
